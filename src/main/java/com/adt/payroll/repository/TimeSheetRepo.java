@@ -53,10 +53,10 @@ public interface TimeSheetRepo extends JpaRepository<TimeSheetModel, Integer> {
 	@Query(value = "SELECT e.check_out FROM payroll_schema.priortime_table e where employee_id=?1 and date=?2", nativeQuery = true)
 	String findCheckOutByEmployeeIdAndDate(int empId, String date);
 
-	@Query(value = "SELECT count(*) as empTotalWorkingDay FROM payroll_schema.time_sheet where employee_id=?1 and month=?2 and year=?3 and status='Present' and working_hour>='6:00:00'", nativeQuery = true)
+	@Query(value = "SELECT count(*) as empTotalWorkingDay FROM payroll_schema.time_sheet where employee_id=?1 and month=?2 and year=?3 and status='Present' and total_working_hours>='6:00:00'", nativeQuery = true)
 	public int findEmpTotalWorkingDayCount(int empId, String month, String year);
 
-	@Query(value = "SELECT count(*) as empHalfDay FROM payroll_schema.time_sheet where employee_id=?1 and month=?2 and year=?3 and status='Present' and working_hour<'6:00:00'", nativeQuery = true)
+	@Query(value = "SELECT count(*) as empHalfDay FROM payroll_schema.time_sheet where employee_id=?1 and month=?2 and year=?3 and status='Present' and total_working_hours<'6:00:00'", nativeQuery = true)
 	public int findEmpTotalHalfDayCount(int empId, String month, String year);
 
 //	@Query(value = "SELECT * FROM payroll_schema.Time_sheet t WHERE (TO_DATE(t.date, 'dd-MM-yyyy') >= TO_DATE(?1, 'dd-MM-yyyy') AND TO_DATE(t.date, 'dd-MM-yyyy') <= TO_DATE(?2, 'dd-MM-yyyy')) and (t.check_in IS NULL OR t.check_out IS NULL OR (t.working_hour IS NULL OR t.working_hour<'9:30:00'))", nativeQuery = true)
