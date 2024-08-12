@@ -1,6 +1,7 @@
 package com.adt.payroll.model;
 
 
+import java.sql.Time;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
@@ -92,6 +93,8 @@ public class TimeSheetModel {
     @Column(name = "check_out_distance_status")
     private String checkOutDistanceStatus;
 
+    @Column(name = "total_working_hours")
+    private Time totalWorkingHours;
 
     @Transient
     private String employeeName;
