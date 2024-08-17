@@ -301,7 +301,7 @@ public class PayRollServiceImpl implements PayRollService {
 
 	// Excel Pay Slip
 
-	public String generatePaySlip(MultipartFile file, String email) throws IOException, ParseException {
+	public String generatePaySlip(MultipartFile file, String email,boolean isDBSelected) throws IOException, ParseException {
 		DateTimeZone istTimeZone = DateTimeZone.forID("Asia/Kolkata");
 		DateTime currentDateTime = new DateTime(istTimeZone);
 
@@ -360,19 +360,10 @@ public class PayRollServiceImpl implements PayRollService {
 		cal.setTime(inputFormat.parse(String.valueOf(earlier.getMonth())));
 
 		String monthDate = String.valueOf(outputFormat.format(cal.getTime()));
-//
-//		String monthYear = String.valueOf(earlier.getMonth() + " " + earlier.getYear());
-//		String firstDayMonth = "01/" + monthDate + "/" + +earlier.getYear();
-//		String lastDayOfMonth = (LocalDate.parse(firstDayMonth, DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-//				.with(TemporalAdjusters.lastDayOfMonth())).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-//		String payPeriod = firstDayMonth + " - " + lastDayOfMonth;
 		DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 		String date = dtf.format(currentdate);
-		String sql = "select * from employee_schema.employee_expenses";
-		List<Map<String, Object>> tableData = dataExtractor.extractDataFromTable(sql);
 		List<User> employee = userRepo.findAll();
 		Map<String, String> paySlipDetails = util.getWorkingDaysAndMonth();
-		// int workingDay = util.getWorkingDays();
 		for (int i = 2; i <= sheet.getLastRowNum(); i++) {
 
 			try {
@@ -463,15 +454,6 @@ public class PayRollServiceImpl implements PayRollService {
 					if (halfDay > limit || leave > limit || workingDays > limit || present > limit) {
 						continue;
 					}
-					for (Map<String, Object> expense : tableData) {
-						submitDate = String.valueOf(expense.get("payment_date")).substring(3, 5);
-						status = String.valueOf(expense.get("status"));
-						employee_id = String.valueOf(expense.get("employee_id"));
-						if (submitDate.equals(monthDate) && status.equals("Accepted")
-								&& employee_id.equalsIgnoreCase(String.valueOf(empId))) {
-							adhoc1 += Integer.parseInt(String.valueOf(expense.get("expense_amount")));
-						}
-					}
 
 					MonthlySalaryDetails monthlySalaryDetails = new MonthlySalaryDetails();
 
@@ -481,6 +463,14 @@ public class PayRollServiceImpl implements PayRollService {
 						continue;
 
 					}
+					Month month = Month.valueOf(paySlipDetails.get(util.MONTH).toUpperCase());
+					Optional<ExpenseItems> items = expenseManagementRepo.findExpenseDetailsByEmpId(Integer.parseInt(empId) , month.getValue(), Integer.valueOf(paySlipDetails.get(util.YEAR)));
+
+					if (items.isPresent()) {
+						if (items.get().getStatus().equalsIgnoreCase("Approved")) {
+							adhoc1 =adhoc1+ (int) items.get().getAmount() ;
+						}
+					}
 					log.info("Generating Pdf");
 					baos = createPdf(adtID, name, workingDays, present, leave, halfDay, salary, paidLeave, date,
 							bankName, accountNumber, designation, joiningDate, adhoc1,
@@ -488,18 +478,17 @@ public class PayRollServiceImpl implements PayRollService {
 							monthlySalaryDetails);
 
 					log.info("Pdf generated successfully.");
-
-					SimpleDateFormat f = new SimpleDateFormat("dd-MM-yyyy");
-					Calendar cal1 = Calendar.getInstance();
-					cal1.add(Calendar.MONTH, -1);
-					SimpleDateFormat monthFormat = new SimpleDateFormat("MMM");
-					String monthName = monthFormat.format(cal1.getTime()).toUpperCase();
 					DateTime current = new DateTime(istTimeZone);
 					double medical = medicalInsurance;
 					double adhoc = adhoc1;
 					double adj = adjustment;
 
-					if (email == null || email.isEmpty()) {
+					if (email != null && !email.isEmpty())
+						gmail = email;
+					mailService.sendEmail(baos, name, gmail,
+							paySlipDetails.get(Util.MONTH) + " " + paySlipDetails.get(Util.YEAR));
+
+					if (isDBSelected) {
 						log.info("save data in monthlySalaryDetails Table");
 						monthlySalaryDetails.setEmpId(Integer.parseInt(empId));
 						monthlySalaryDetails.setMedicalInsurance(medical);
@@ -507,7 +496,7 @@ public class PayRollServiceImpl implements PayRollService {
 						monthlySalaryDetails.setAdjustment(adj);
 						monthlySalaryDetails.setDearnessAllowance(0.0);
 						monthlySalaryDetails.setCreditedDate(util.getCreatedDate(15));
-						monthlySalaryDetails.setMonth(monthName);
+						monthlySalaryDetails.setMonth(paySlipDetails.get(Util.MONTH));
 						monthlySalaryDetails.setTotalWorkingDays(workingDays);
 						monthlySalaryDetails.setPaidLeave(Integer.parseInt(paidLeave));
 						monthlySalaryDetails.setHalfDay(halfDay);
@@ -517,18 +506,14 @@ public class PayRollServiceImpl implements PayRollService {
 
 						monthlySalaryDetailsRepo.save(monthlySalaryDetails);
 					}
-					if (email != null && !email.isEmpty())
-						gmail = email;
-					mailService.sendEmail(baos, name, gmail,
-							paySlipDetails.get(Util.MONTH) + " " + paySlipDetails.get(Util.YEAR));
-					log.info("Mail send successfully this email id=" + gmail);
+					log.info("Mail send successfully this email id {} ", gmail);
 				} catch (Exception e) {
-					log.error("Getting error while payslip generation=" + e.getMessage());
+					log.error("Getting error while payslip generation {} ", e.getMessage());
 					mailService.sendEmail(name);
 					continue;
 				}
 			} catch (Exception e) {
-				log.error("Getting error while payslip generation." + e.getMessage());
+				log.error("Getting error while payslip generation. {} ",e.getMessage());
 				break;
 			}
 		}
@@ -937,12 +922,10 @@ public class PayRollServiceImpl implements PayRollService {
 
 //  generate salary code modification
 	@Override
-	public String generatePaySlipForAllEmployees(String emailInput) throws ParseException, IOException {
+	public String generatePaySlipForAllEmployees(String emailInput, boolean isDBSelected) throws ParseException, IOException {
 
 		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		// int officeTotalWorkingDay = util.getWorkingDays();
 		Map<String, String> paySlipDetails = util.getWorkingDaysAndMonth();
-	//	List<SalaryDetails> salaryDetailsList = salaryDetailsRepo.findAll();
 		List<User> employeeList= userRepo.findAllByIsActive(true);
 		String name = null;
 		PaySlip paySlip = null;
@@ -1021,14 +1004,6 @@ public class PayRollServiceImpl implements PayRollService {
 											+ emppf + paySlip.getLeaveDeductionAmount()
 											+ medical;
 									double grossDeduction=grossDeductionCal;
-//									double grossDeduction = Math.round(grossDeductionCal) <= Math.round(grossEarning)
-//											? Math.round(grossDeductionCal)
-//											: Math.round(grossEarning);
-									
-//									double empNetSalaryAmount = Math
-//											.round(empGrossSalaryAmount - (salaryDetails.get().getEmployeeESICAmount()
-//													+ salaryDetails.get().getEmployeePFAmount()
-//													+ salaryDetails.get().getMedicalInsurance()));
 									
 									double empNetSalaryAmount = Math
 											.round(grossEarning - grossDeductionCal);
@@ -1067,9 +1042,7 @@ public class PayRollServiceImpl implements PayRollService {
 										log.info("Adding payslip");
 										payslip.put(baos, name);
 									}
-									
 									log.info("baos:---createPDF");
-
 								} else {
 									continue;
 								}
@@ -1077,9 +1050,9 @@ public class PayRollServiceImpl implements PayRollService {
 									log.info("Sending mail to employee ", +employee.getId());
 									mailService.sendEmail(baos, name, gmail,
 											paySlipDetails.get(Util.MONTH) + " " + paySlipDetails.get(Util.YEAR));
-
+								}
+								if(isDBSelected) {
 									MonthlySalaryDetails saveMonthlySalaryDetails = new MonthlySalaryDetails();
-
 									saveMonthlySalaryDetails(saveMonthlySalaryDetails, salaryDetails.get(), paySlipDetails,
 											paySlip);
 								}
@@ -1091,14 +1064,14 @@ public class PayRollServiceImpl implements PayRollService {
 						} catch (Exception e) {
 							e.printStackTrace();
 							mailService.sendEmail(name, "Error while generating payslip.");
-							log.info("e.printStackTrace()---" + e.getMessage());
+							log.info("getting error in generatePaySlipForAllEmployees {} ", e.getMessage());
 							continue;
 						}
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
 					mailService.sendEmail(name, "Kindly Check the salary details for mentioned Employee.");
-					log.info("e.printStackTrace()----" + e.getMessage());
+					log.info("e.printStackTrace() {} ",e.getMessage());
 					break;
 				}
 			}

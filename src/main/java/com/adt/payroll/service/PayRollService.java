@@ -16,7 +16,7 @@ import com.itextpdf.text.DocumentException;
 public interface PayRollService {
 	public PaySlip createPaySlip(int empId, String month, String year) throws ParseException, IOException;
 
-	public String generatePaySlip(MultipartFile file, String email) throws IOException, ParseException;
+	public String generatePaySlip(MultipartFile file, String email, boolean isDBSelected) throws IOException, ParseException;
 
 	public ViewPaySlipDto viewPay(int empId, String month, String year) throws Exception;
 
@@ -25,7 +25,7 @@ public interface PayRollService {
 
 	String updateNetAmountInExcel(MultipartFile file) throws IOException;
 
-	public String generatePaySlipForAllEmployees(String emailInput) throws ParseException, IOException;
+	public String generatePaySlipForAllEmployees(String emailInput, boolean isDBSelected) throws ParseException, IOException;
 
 	public SalaryDetailsDTO getEmployeePayrollSalaryDetailsByEmpId(Integer empId);
 	
