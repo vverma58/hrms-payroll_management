@@ -144,94 +144,96 @@ public class MonthlyScheduler {
 		}
 
 	}
-
 	//@Scheduled(cron = "0 */1 * * * *")
- @Scheduled(cron = "0 0 8 * * MON") // Executes every Monday at 8 AM
-	public String sendLeaveNotificationForTimesheet() {
-		log.info("Generate time sheet report and handle leaves for Date");
-		LocalDate currentDate = LocalDate.now();
-		LocalDate startDate = currentDate.withDayOfMonth(1);
-		LocalDate endDate = currentDate.minusDays(1); // Set endDate to yesterday
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-		String formattedStartDate = startDate.format(formatter);
-		String formattedEndDate = endDate.format(formatter);
-		List<TimeSheetModel> timeSheet = timeSheetRepo.findTimeSheetWithNullValues(formattedStartDate, formattedEndDate);
-
-		// Get working dates for the current month up to and including yesterday
-		List<LocalDate> workingDates = calculateWorkingDates(startDate, endDate);
-
-		if (!timeSheet.isEmpty()) {
-			Map<Integer, List<TimeSheetModel>> employeeTimeSheetDetails = timeSheet.stream()
-					.collect(Collectors.groupingBy(TimeSheetModel::getEmployeeId));
-
-			for (Map.Entry<Integer, List<TimeSheetModel>> entry : employeeTimeSheetDetails.entrySet()) {
-				Integer employeeId = entry.getKey();
-				List<TimeSheetModel> timeSheets = entry.getValue();
-
-				try {
-					// Mark absences and log absent dates
-					List<LocalDate> absentDates = markAbsences(timeSheets, workingDates, employeeId);
-					if (absentDates.isEmpty()) {
-						log.info("No absences recorded for employee: {}", employeeId);
-					} else {
-						log.info("Absence recorded successfully for employee: {}. Absent Dates: {}", employeeId, absentDates);
-					}
-				} catch (Exception ex) {
-					log.error("Error processing leave notification for employeeId: {}. Exception message: {}", employeeId, ex.getMessage(), ex);
-				}
-			}
-			return "Leave notifications sent successfully for timesheets.";
-		} else {
-			log.info("No timesheets found for the current month.");
-			return "No timesheets found for the current month.";
-		}
-	}
-
-	private List<LocalDate> markAbsences(List<TimeSheetModel> timeSheets, List<LocalDate> workingDates, int employeeId) {
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-		Set<LocalDate> datesWithRecords = timeSheets.stream()
-				.map(ts -> {
-					LocalDate date = LocalDate.parse(ts.getDate(), formatter);
-					log.info("Recorded date for employee {}: {}", employeeId, date);
-					return date;
-				})
-				.collect(Collectors.toSet());
-
-		List<LocalDate> absentDates = new ArrayList<>();
-
-		for (LocalDate date : workingDates) {
-			log.info("Checking working date: {}", date);
-			if (!datesWithRecords.contains(date)) {
-				absentDates.add(date);
-				try {
-					// Mark absence in the database
-					TimeSheetModel absenceRecord = new TimeSheetModel();
-					absenceRecord.setEmployeeId(employeeId);
-					absenceRecord.setDate(date.format(formatter));
-					absenceRecord.setStatus("Absent");
-					absenceRecord.setDay(date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH)); // Set day of the week
-
-					// Save or update the record in the database
-					TimeSheetModel existingRecord = timeSheetRepo.findByEmployeeIdAndDate(employeeId, date.format(formatter)).orElse(null);
-					if (existingRecord != null) {
-						// Update the existing record
-						existingRecord.setStatus("Absent");
-						existingRecord.setDay(date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH));
-						timeSheetRepo.save(existingRecord);
-					} else {
-						// Save a new record
-						timeSheetRepo.save(absenceRecord);
-					}
-
-					log.info("Employee ID {} was absent on {} ({})", employeeId, date, absenceRecord.getDay());
-				} catch (Exception e) {
-					log.error("Error marking absence for employeeId: {} on date: {}", employeeId, date, e);
-				}
-			}
-		}
-
-		return absentDates;
-	}
+// @Scheduled(cron = "0 0 8 * * MON") // Executes every Monday at 8 AM
+//	public String sendLeaveNotificationForTimesheet() {
+//		log.info("Generate time sheet report and handle leaves for Date");
+//		LocalDate currentDate = LocalDate.now();
+//		//LocalDate startDate = currentDate.withDayOfMonth(1);
+//		LocalDate endDate = currentDate.minusDays(1);
+//		LocalDate startDate = endDate.withDayOfMonth(7);
+//
+//		//LocalDate endDate = currentDate.minusDays(1); // Set endDate to yesterday
+//		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+//		String formattedStartDate = startDate.format(formatter);
+//		String formattedEndDate = endDate.format(formatter);
+//		List<TimeSheetModel> timeSheet = timeSheetRepo.findTimeSheet(formattedStartDate, formattedEndDate);
+//
+//		// Get working dates for the current month up to and including yesterday
+//		List<LocalDate> workingDates = calculateWorkingDates(startDate, endDate);
+//
+//		if (!timeSheet.isEmpty()) {
+//			Map<Integer, List<TimeSheetModel>> employeeTimeSheetDetails = timeSheet.stream()
+//					.collect(Collectors.groupingBy(TimeSheetModel::getEmployeeId));
+//
+//			for (Map.Entry<Integer, List<TimeSheetModel>> entry : employeeTimeSheetDetails.entrySet()) {
+//				Integer employeeId = entry.getKey();
+//				List<TimeSheetModel> timeSheets = entry.getValue();
+//
+//				try {
+//					// Mark absences and log absent dates
+//					List<LocalDate> absentDates = markAbsences(timeSheets, workingDates, employeeId);
+//					if (absentDates.isEmpty()) {
+//						log.info("No absences recorded for employee: {}", employeeId);
+//					} else {
+//						log.info("Absence recorded successfully for employee: {}. Absent Dates: {}", employeeId, absentDates);
+//					}
+//				} catch (Exception ex) {
+//					log.error("Error processing leave notification for employeeId: {}. Exception message: {}", employeeId, ex.getMessage(), ex);
+//				}
+//			}
+//			return "Leave notifications sent successfully for timesheets.";
+//		} else {
+//			log.info("No timesheets found for the current month.");
+//			return "No timesheets found for the current month.";
+//		}
+//	}
+//
+//	private List<LocalDate> markAbsences(List<TimeSheetModel> timeSheets, List<LocalDate> workingDates, int employeeId) {
+//		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+//		Set<LocalDate> datesWithRecords = timeSheets.stream()
+//				.map(ts -> {
+//					LocalDate date = LocalDate.parse(ts.getDate(), formatter);
+//					log.info("Recorded date for employee {}: {}", employeeId, date);
+//					return date;
+//				})
+//				.collect(Collectors.toSet());
+//
+//		List<LocalDate> absentDates = new ArrayList<>();
+//
+//		for (LocalDate date : workingDates) {
+//			log.info("Checking working date: {}", date);
+//			if (!datesWithRecords.contains(date)) {
+//				absentDates.add(date);
+//				try {
+//					// Mark absence in the database
+//					TimeSheetModel absenceRecord = new TimeSheetModel();
+//					absenceRecord.setEmployeeId(employeeId);
+//					absenceRecord.setDate(date.format(formatter));
+//					absenceRecord.setStatus("Absent");
+//					absenceRecord.setDay(date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH)); // Set day of the week
+//
+//					// Save or update the record in the database
+//					TimeSheetModel existingRecord = timeSheetRepo.findByEmployeeIdAndDate(employeeId, date.format(formatter)).orElse(null);
+//					if (existingRecord != null) {
+//						// Update the existing record
+//						existingRecord.setStatus("Absent");
+//						existingRecord.setDay(date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH));
+//						timeSheetRepo.save(existingRecord);
+//					} else {
+//						// Save a new record
+//						timeSheetRepo.save(absenceRecord);
+//					}
+//
+//					log.info("Employee ID {} was absent on {} ({})", employeeId, date, absenceRecord.getDay());
+//				} catch (Exception e) {
+//					log.error("Error marking absence for employeeId: {} on date: {}", employeeId, date, e);
+//				}
+//			}
+//		}
+//
+//		return absentDates;
+//	}
 
 	private List<LocalDate> calculateWorkingDates(LocalDate startDate, LocalDate endDate) {
 		List<LocalDate> workingDates = new ArrayList<>();
