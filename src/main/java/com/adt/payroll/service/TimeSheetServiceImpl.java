@@ -5,12 +5,14 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.sql.Time;
 import java.text.DateFormat;
 import java.text.DateFormatSymbols;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.Month;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -71,6 +73,7 @@ import java.text.DateFormatSymbols;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.Month;
 import java.time.format.DateTimeFormatter;
@@ -197,12 +200,18 @@ public class TimeSheetServiceImpl implements TimeSheetService {
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HH:mm:ss");
             Date date1 = simpleDateFormat.parse(currentDateTime.getCurrentTime());
             Date date2 = simpleDateFormat.parse(timeSheetModel.getCheckIn());
+            
+           
             long differenceInMilliSeconds = Math.abs(date2.getTime() - date1.getTime());
             long differenceInHours = (differenceInMilliSeconds / (60 * 60 * 1000)) % 24;
             long differenceInMinutes = (differenceInMilliSeconds / (60 * 1000)) % 60;
             long differenceInSeconds = (differenceInMilliSeconds / 1000) % 60;
-            timeSheetModel
-                    .setWorkingHour(differenceInHours + ":" + differenceInMinutes + ":" + differenceInSeconds);
+            LocalTime localTimeDifference = LocalTime.of((int) differenceInHours, (int) differenceInMinutes, (int) differenceInSeconds);
+
+            Time timeDifference = Time.valueOf(localTimeDifference);
+            timeSheetModel.setTotalWorkingHours(timeDifference);
+//            timeSheetModel
+//                    .setWorkingHour(differenceInHours + ":" + differenceInMinutes + ":" + differenceInSeconds);
             if (timeSheetModel.getLeaveInterval() != null && !timeSheetModel.getLeaveInterval().isEmpty()) {
                 if (!timeSheetModel.getIntervalStatus()) {
                     return "Please Resume Your Break";
@@ -484,10 +493,19 @@ public class TimeSheetServiceImpl implements TimeSheetService {
         for (TimeSheetModel timeSheetModel : timeSheetModelList) {
             TimesheetDTO timesheetDTO = TimesheetDTO.builder().employeeId(timeSheetModel.getEmployeeId())
                     .date(timeSheetModel.getDate()).checkIn(timeSheetModel.getCheckIn())
-                    .checkOut(timeSheetModel.getCheckOut()).workingHour(timeSheetModel.getWorkingHour())
+                    .checkOut(timeSheetModel.getCheckOut()).day(timeSheetModel.getDayOfWeek())
+                    .workingHour(timeSheetModel.getTotalWorkingHours()!=null?timeSheetModel.getTotalWorkingHours().toString():"")
                     .leaveInterval(timeSheetModel.getLeaveInterval()).status(timeSheetModel.getStatus()).build();
             timesheetDTOList.add(timesheetDTO);
         }
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+
+        timesheetDTOList.sort((ts1, ts2) -> {
+            LocalDate date1 = LocalDate.parse(ts1.getDate(), formatter);
+            LocalDate date2 = LocalDate.parse(ts2.getDate(), formatter);
+            return date2.compareTo(date1); 
+        });
+
         return timesheetDTOList;
     }
 

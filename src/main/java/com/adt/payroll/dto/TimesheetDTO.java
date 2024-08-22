@@ -12,4 +12,5 @@ public class TimesheetDTO {
     private String checkIn;
     private String checkOut;
     private String leaveInterval;
+    private String day;
 }
