@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.adt.payroll.service.PriorTimeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,7 +78,10 @@ public class TimeSheetController {
 
     @Autowired
     TimeSheetRepo timeSheetRepo;
-    
+
+    @Autowired
+    private PriorTimeService priortimeService;
+
     @Autowired
     PriorTimeRepository priorTimeRepository;
     
@@ -129,9 +133,9 @@ public class TimeSheetController {
         return new ResponseEntity<>(timeSheetService.checkPriorStatus(empId), HttpStatus.OK);
     }
 
-@PreAuthorize("@auth.allow('GET_ATTENDANCE_BY_EMPLOYEE_ID',T(java.util.Map).of('currentUser', #empId))")
-@GetMapping("/empAttendence")
-public ResponseEntity<List<TimesheetDTO>> empAttendence(@RequestParam("empId") int empId,
+    @PreAuthorize("@auth.allow('GET_ATTENDANCE_BY_EMPLOYEE_ID',T(java.util.Map).of('currentUser', #empId))")
+    @GetMapping("/empAttendence")
+    public ResponseEntity<List<TimesheetDTO>> empAttendence(@RequestParam("empId") int empId,
                                                         @RequestParam("fromDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate fromDate,
                                                         @RequestParam("toDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate toDate,
                                                         HttpServletRequest request) {
@@ -143,7 +147,7 @@ public ResponseEntity<List<TimesheetDTO>> empAttendence(@RequestParam("empId") i
 
     @PreAuthorize("@auth.allow('GET_ALL_EMPLOYEE_ATTENDANCE')")
     @GetMapping("/allEmpAttendence")
-    public ResponseEntity<List<TimeSheetModel>> allEmpAttendence(
+    public ResponseEntity<List<TimesheetDTO>> allEmpAttendence(
             @RequestParam("fromDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate fromDate,
             @RequestParam("toDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate toDate,
             HttpServletRequest request) {
@@ -340,8 +344,25 @@ public ResponseEntity<List<TimesheetDTO>> empAttendence(@RequestParam("empId") i
 	  double longitude,@PathVariable int empId,@RequestParam("reason") String reason,@RequestParam("type") String type) throws ParseException{   	 
 		  return new ResponseEntity<>(timeSheetService.earlyCheckOut(latitude,longitude,empId,reason,type), HttpStatus.OK);  
 	  }
-	  
-	  
+     @PreAuthorize("@auth.allow('GET_PRIOR_TIME_HISTORY_BY_EMPID')")
+     @GetMapping("/getPriorTimeHistory/{employeeId}")
+     public ResponseEntity<List<Priortime>> getPriorTimeHistoryByEmployeeId(
+            @PathVariable int employeeId) {
+        List<Priortime> priortimeHistory = priortimeService.getPriorTimeHistoryByEmployeeId(employeeId);
+        return ResponseEntity.ok(priortimeHistory);
+    }
 
+   /* @PostMapping("/updateCheckInCheckOut/{empId}")
+    public ResponseEntity<String> updateCheckInCheckOut(
+            @PathVariable int empId,
+            @RequestParam(value = "checkIn", required = false) String checkInTime,
+            @RequestParam(value = "checkOut", required = false) String checkOutTime,
+            HttpServletRequest request) {
+
+        LOGGER.info("API Call From IP: " + request.getRemoteHost());
+
+        String response = timeSheetService.updateCheckInCheckOutByEmpId(empId, checkInTime, checkOutTime);
+        return ResponseEntity.ok(response);
+    }*/
 
 }

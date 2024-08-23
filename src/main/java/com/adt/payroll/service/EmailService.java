@@ -89,4 +89,26 @@ public class EmailService {
 
 
 
+	public String sendEmail(LeaveRequestModel lr, String recipientEmail) throws MessagingException {
+		MimeMessage message = javaMailSender.createMimeMessage();
+		MimeMessageHelper helper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
+
+		helper.setTo("lilesh09sharma.adt@gmail.com"); // Use the dynamic recipient email
+		helper.setText(lr.getMessage(), true); // Use the dynamic email body, assume message contains email body
+		helper.setSubject("Leave Request Cancellation"); // Set email subject
+		helper.setFrom("teamhr.adt@gmail.com"); // Your email address as the sender
+
+		javaMailSender.send(message);
+
+		return "Mail Sent Successfully";
+	}
+
+	public void sendEmail(String recipientEmail, String subject, String text) {
+	}
+
+	// Overloaded method to send email using LeaveRequestModel object directly
+//	public String sendEmail(LeaveRequestModel lr) throws MessagingException {
+//		return sendEmail(lr, lr.getEmail()); // Call the method using the email from LeaveRequestModel
+//	}
+
 }

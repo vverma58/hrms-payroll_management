@@ -5,13 +5,10 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.Map;
 
+import com.adt.payroll.event.*;
+import com.adt.payroll.model.OnLeaveRequestCancelEvent;
 import jakarta.mail.MessagingException;
 
-import com.adt.payroll.event.OnEmployeeExpenseAcceptOrRejectEvent;
-import com.adt.payroll.event.OnEmployeeExpenseDetailsSavedEvent;
-import com.adt.payroll.event.OnLeaveAcceptOrRejectEvent;
-import com.adt.payroll.event.OnPriorTimeAcceptOrRejectEvent;
-import com.adt.payroll.event.OnPriorTimeDetailsSavedEvent;
 import com.adt.payroll.model.LeaveRequestModel;
 import com.adt.payroll.model.Mail;
 import com.adt.payroll.model.OnLeaveRequestSaveEvent;
@@ -60,5 +57,10 @@ public interface CommonEmailService {
 	
 	public void sendEmail(Map<ByteArrayOutputStream, String> baos, String name, String gmail, String monthYear);
 
+	//public void sendEmail(LeaveRequestModel leaveRequestModel, String recipientEmail) throws MessagingException;
 
+	public void sendEmail(OnLeaveRequestCancelEvent event) throws MessagingException, TemplateException, IOException;
+
+
+	void sendLeaveCancelEmail(OnLeaveCancelEvent onLeaveCancelEvent);
 }

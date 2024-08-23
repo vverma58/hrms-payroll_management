@@ -26,8 +26,10 @@ public interface LeaveRequestService {
 	public List<LeaveRequestModel> getAllEmployeeLeaveDetails();
 	
     public	String reSendLeaveRequest(int leaveId);
+
 	LeaveRequestModel getLeaveRequestDetailsByEmpIdAndLeaveId(int empId, int leaveId);
 
+	String cancelApprovedLeaveByLeaveId(Integer leaveId, String cancelReason, Integer empId);
 
-
+	String cancelLeaveRequest(Integer empid, Integer leaveId,String leaveType, String cancelReason);
 }

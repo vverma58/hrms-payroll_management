@@ -23,6 +23,15 @@ public class TableDataExtractor {
     }
     
     public int  insertDataFromTable(String sql){   
- 	   return jdbcTemplate.update(sql);
+
+        return jdbcTemplate.update(sql);
      }
+
+    public List<Map<String, Object>> extractDataFromTable1(String sql, Object... params) {
+        return jdbcTemplate.queryForList(sql, params);
+    }
+    public int insertDataFromTable1(String sql, Object... params) {
+        return jdbcTemplate.update(sql, params);
+    }
+
 }
