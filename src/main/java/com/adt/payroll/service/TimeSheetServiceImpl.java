@@ -42,11 +42,7 @@ import com.adt.payroll.dto.EmployeeExpenseDTO;
 import com.adt.payroll.dto.TimesheetDTO;
 import com.adt.payroll.event.OnPriorTimeDetailsSavedEvent;
 import com.adt.payroll.exception.NoDataFoundException;
-import com.adt.payroll.service.Helper;
 import com.adt.payroll.model.EmployeeExpense;
-import com.adt.payroll.model.LeaveModel;
-import com.adt.payroll.model.LeaveRequestModel;
-import com.adt.payroll.model.OnLeaveRequestSaveEvent;
 import com.adt.payroll.model.Priortime;
 import com.adt.payroll.model.TimeSheetModel;
 import com.adt.payroll.model.User;
@@ -57,33 +53,12 @@ import com.adt.payroll.repository.PriorTimeRepository;
 import com.adt.payroll.repository.TimeSheetRepo;
 import com.adt.payroll.repository.UserRepo;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import org.springframework.web.util.UriComponentsBuilder;
-
-import java.io.*;
-import java.text.DateFormat;
-import java.text.DateFormatSymbols;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.DayOfWeek;
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.Month;
-import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @Service
-public class TimeSheetServiceImpl implements TimeSheetService {
+public class TimeSheetServiceImpl implements TimeSheetService ,PriorTimeService{
 
     private final Logger LOGGER = LoggerFactory.getLogger(this.getClass());
 
@@ -105,6 +80,8 @@ public class TimeSheetServiceImpl implements TimeSheetService {
     
     @Autowired
     ApplicationEventPublisher applicationEventPublisher;
+
+    private static final List<String> Status = Arrays.asList("Rejected","Resend", "Approved", "Accepted", "Pending");
 
     public void updateDaysForPresentStatus() {
         timeSheetRepo.updateDaysForPresentEntries();
@@ -510,26 +487,41 @@ public class TimeSheetServiceImpl implements TimeSheetService {
     }
 
     @Override
-    public List<TimeSheetModel> allEmpAttendence(LocalDate fromDate, LocalDate toDate) {
+    public List<TimesheetDTO> allEmpAttendence(LocalDate fromDate, LocalDate toDate) {
         DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
         String startDate = dateTimeFormatter.format(fromDate);
         String endDate = dateTimeFormatter.format(toDate);
-        List<TimeSheetModel> list = timeSheetRepo.findAllWithinSpecifiedDateRange(startDate, endDate).stream()
-                .filter(e -> e != null)
-                .map(e -> {
-                    Optional<User> t = userRepo.findById(e.getEmployeeId());
-                    if (t.isPresent()) {
-                        e.setEmployeeName(t.get().getFirstName() + " " + t.get().getLastName());
-                    } else {
-                        e.setEmployeeName("NOT AVAILABLE");
-                    }
-                    // Set the day of the week
-                    e.setDayOfWeek(e.getDayOfWeek());
-                    return e;
-                }).collect(Collectors.toList());
-        return list;
-    }
+        // Fetch all attendance records within the specified date range
+        List<TimeSheetModel> timeSheetModelList = timeSheetRepo.findAllWithinSpecifiedDateRange(startDate, endDate);
+        // Convert TimeSheetModel to TimesheetDTO
+        List<TimesheetDTO> timesheetDTOList = new ArrayList<>();
+        for (TimeSheetModel timeSheetModel : timeSheetModelList) {
+            // Fetch employee details
+            Optional<User> userOptional = userRepo.findById(timeSheetModel.getEmployeeId());
+            String employeeName = userOptional.map(user -> user.getFirstName() + " " + user.getLastName())
+                    .orElse("NOT AVAILABLE");
+            // Create TimesheetDTO
+            TimesheetDTO timesheetDTO = TimesheetDTO.builder()
+                    .employeeId(timeSheetModel.getEmployeeId())
+                    .date(timeSheetModel.getDate())
+                    .status(timeSheetModel.getStatus())
+                    .workingHour(timeSheetModel.getTotalWorkingHours() != null ? timeSheetModel.getTotalWorkingHours().toString() : "")
+                    .checkIn(timeSheetModel.getCheckIn())
+                    .checkOut(timeSheetModel.getCheckOut())
+                    .leaveInterval(timeSheetModel.getLeaveInterval())
+                    .day(timeSheetModel.getDayOfWeek())
+                    .build();
+            timesheetDTOList.add(timesheetDTO);
+        }
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+        timesheetDTOList.sort((dto1, dto2) -> {
+            LocalDate date1 = LocalDate.parse(dto1.getDate(), formatter);
+            LocalDate date2 = LocalDate.parse(dto2.getDate(), formatter);
+            return date1.compareTo(date2); // Sort in ascending order
 
+        });
+        return timesheetDTOList;
+    }
 
     @Override
     public String pauseWorkingTime(int empId) {
@@ -905,7 +897,26 @@ public String earlyCheckOut(double latitude, double longitude, int empId,String 
        return "You Are Not Check in";
 
 }
+    @Override
+    public List<Priortime> getPriorTimeHistoryByEmployeeId(int employeeId) {
+        return priorTimeRepository.findByEmployeeIdAndStatusIn(employeeId, Status);
+    }
 
 
-
+   /* @Override
+    public String updateCheckInCheckOutByEmpId(int empId, String checkInTime, String checkOutTime) {
+        Optional<TimeSheetModel> timeSheetModels = timeSheetRepo.findByEmployeeIdAndDate(empId, util.getDateTime().getCurrentDate());
+        if (!timeSheetModels.isPresent()) {
+            return "No time sheet entry found for the given employee and date.";
+        }
+        TimeSheetModel timeSheetModel = timeSheetModels.get();
+        if (checkInTime != null && !checkInTime.isEmpty()) {
+            timeSheetModel.setCheckIn(checkInTime);
+        }
+        if (checkOutTime != null && !checkOutTime.isEmpty()) {
+            timeSheetModel.setCheckOut(checkOutTime);
+        }
+        timeSheetRepo.save(timeSheetModel);
+        return "Check-in and check-out times updated successfully.";
+    }*/
 }

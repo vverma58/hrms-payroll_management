@@ -9,6 +9,8 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -27,7 +29,7 @@ import jakarta.servlet.http.HttpServletRequest;
 @Configuration
 public class Auth {
 	String AUTHORITIES_CLAIM = "authorities";
-
+	private final Logger LOGGER = LoggerFactory.getLogger(this.getClass());
 	@Autowired
 	private HttpServletRequest request;
 	
@@ -138,17 +140,29 @@ public class Auth {
 		isUpdated=true;
 		return token;
 	}
-	
 	public String getEmail() {
-		String sql = "select email from user_schema._employee where employee_id=" +empId;
+		String sql = "SELECT email FROM user_schema._employee WHERE employee_id=" + empId;
 		List<Map<String, Object>> empData = dataExtractor.extractDataFromTable(sql);
-		if (empData != null || !empData.isEmpty()) {
-			Map<String, Object> firstMap = empData.get(0);
-			return String.valueOf(firstMap.get("email"));
+		if (empData == null || empData.isEmpty()) {
+			// Handle the case where no data is returned
+			LOGGER.warn("No email found for employee_id: {}", empId);
+			return "Email not found";
 		}
-		return "email id not present";
+
+		// Get the first entry from the list
+		Map<String, Object> firstMap = empData.get(0);
+
+		// Extract the email address
+		Object emailObj = firstMap.get("email");
+		if (emailObj == null) {
+			LOGGER.warn("Email field is null for employee_id: {}", empId);
+			return "Email not found";
+		}
+
+		return emailObj.toString();
 	}
-	
+
+
 	public String tokenGanreate(String emailId) {
 		String sql = "SELECT r.role_name, e.employee_id FROM user_schema.role r JOIN user_schema.user_authority ua ON r.role_id = ua.role_id JOIN user_schema._employee e ON ua.employee_id = e.employee_id WHERE e.email ="
 				+ "'" + emailId + "'";

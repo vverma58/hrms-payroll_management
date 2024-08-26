@@ -1,5 +1,7 @@
 package com.adt.payroll.service;
 
+import com.adt.payroll.model.Mail;
+
 import java.util.Properties;
 
 import javax.mail.Message;
@@ -66,5 +68,5 @@ public class SendMail {
 
         
 	}
-	
+
 }

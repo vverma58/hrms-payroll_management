@@ -17,12 +17,14 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 
+import com.adt.payroll.model.OnLeaveRequestCancelEvent;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.mail.javamail.MimeMessagePreparator;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
 
@@ -79,7 +81,7 @@ public class MailService {
 		send(mail);
 	}
 
-	
+
 	 /**
      * Send an email to the user indicating an account change event with the correct
      * status
@@ -105,10 +107,8 @@ public class MailService {
         Template template = templateConfiguration.getTemplate("account-activity-change.ftl");
         String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
         mail.setContent(mailContent);
-        send(mail);
+        mailSender.send((MimeMessagePreparator) mail);
     }
-    
-    
 	/**
 	 * Sends a simple mail as a MIME Multipart message
 	 * 

@@ -43,6 +43,9 @@ public class LeaveRequestModel {
     
     @Column(name="leave_reason")
     private String leaveReason;
+
+    @Column(name="cancel_reason")
+    private String cancelReason;
     
 	@Transient
     private Integer leaveBalance;
