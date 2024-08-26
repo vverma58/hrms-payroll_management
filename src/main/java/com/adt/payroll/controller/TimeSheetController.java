@@ -351,18 +351,28 @@ public class TimeSheetController {
         List<Priortime> priortimeHistory = priortimeService.getPriorTimeHistoryByEmployeeId(employeeId);
         return ResponseEntity.ok(priortimeHistory);
     }
-
-   /* @PostMapping("/updateCheckInCheckOut/{empId}")
+    @PreAuthorize("@auth.allow('UPDATE_CHECK_IN_CHECK_OUT_BY_EMP_ID')")
+    @PostMapping("/updateCheckInCheckOut/{empId}")
     public ResponseEntity<String> updateCheckInCheckOut(
             @PathVariable int empId,
             @RequestParam(value = "checkIn", required = false) String checkInTime,
             @RequestParam(value = "checkOut", required = false) String checkOutTime,
+            @RequestParam(value = "date", required = false) String date,
             HttpServletRequest request) {
-
         LOGGER.info("API Call From IP: " + request.getRemoteHost());
-
-        String response = timeSheetService.updateCheckInCheckOutByEmpId(empId, checkInTime, checkOutTime);
+        String response = timeSheetService.updateCheckInCheckOutByEmpId(empId, checkInTime, checkOutTime, date);
         return ResponseEntity.ok(response);
-    }*/
-
+    }
+    @PreAuthorize("@auth.allow('GET_EMPLOYEE_BY_ID_AND_DATE')")
+    @GetMapping("/getEmpByIdAndDate")
+    public ResponseEntity<String> getTimeSheetByEmpIdAndDate(
+            @RequestParam(value = "employeeId") int employeeId,
+            @RequestParam(value = "date") String date) {
+        Optional<TimeSheetModel> timeSheet = timeSheetService.getTimeSheetByEmployeeIdAndDate(employeeId, date);
+        if (timeSheet.isPresent()) {
+            return ResponseEntity.ok(timeSheet.get().toString());
+        } else {
+            return ResponseEntity.status(404).body("No time sheet entry found for the given employee and date.");
+        }
+    }
 }
