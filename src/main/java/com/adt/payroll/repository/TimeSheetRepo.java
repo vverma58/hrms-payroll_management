@@ -66,7 +66,7 @@ public interface TimeSheetRepo extends JpaRepository<TimeSheetModel, Integer> {
 		"WHERE (TO_DATE(t.date, 'dd-MM-yyyy') >= TO_DATE(?1, 'dd-MM-yyyy') " +
 		"AND TO_DATE(t.date, 'dd-MM-yyyy') <= TO_DATE(?2, 'dd-MM-yyyy')) " +
 		"AND (t.check_in IS NULL OR t.check_out IS NULL " +
-		"OR (t.working_hour IS NULL OR t.working_hour<'09:30:00'))", nativeQuery = true)
+		"OR (t.total_working_hours IS NULL OR t.total_working_hours<'09:30:00'))", nativeQuery = true)
 public List<TimeSheetModel> findTimeSheetWithNullValues(String startDate, String endDate);
 
 	@Modifying
