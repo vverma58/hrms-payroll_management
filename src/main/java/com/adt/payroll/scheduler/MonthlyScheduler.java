@@ -80,41 +80,30 @@ public class MonthlyScheduler {
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 		List<TimeSheetModel> timeSheet = timeSheetRepo.findTimeSheetWithNullValues(startDate.format(formatter),
 				endDate.format(formatter));
-		LocalDateTime fixedWorkingHour = LocalDateTime.now().withHour(9).withMinute(30).withSecond(0).withNano(0);
 
 		if (!timeSheet.isEmpty() && timeSheet.size() > 0) {
-			Map<Integer, List<TimeSheetModel>> employeeTimeSheetDetails = timeSheet.stream().filter(ts -> {
-				LocalDateTime empWorkingHours = null;
-				if (ts.getWorkingHour() != null && !ts.getWorkingHour().isEmpty()) {
-					String[] arrayOfHours = ts.getWorkingHour().split(":");
-					int hour = Integer.parseInt(arrayOfHours[0]);
-					int minute = Integer.parseInt(arrayOfHours[1]);
-					empWorkingHours = LocalDateTime.now().withHour(hour).withMinute(minute).withSecond(0).withNano(0);
-					boolean isBefore = empWorkingHours.isBefore(fixedWorkingHour);
-					return isBefore;
-				} else {
-					return true;
-				}
-
-			}).collect(Collectors.groupingBy(TimeSheetModel::getEmployeeId));
+			Map<Integer, List<TimeSheetModel>> employeeTimeSheetDetails = timeSheet.stream()
+					.collect(Collectors.groupingBy(TimeSheetModel::getEmployeeId));
 
 			employeeTimeSheetDetails.forEach((i, e) -> {
 				try {
 					Optional<User> user = Optional.ofNullable(userRepo.findById(i)
 							.orElseThrow(() -> new NoDataFoundException("employee not found :" + i)));
-					ByteArrayOutputStream employeeReport = generateExcelReport(e);
+					
+					ByteArrayOutputStream employeeReport = generateExcelReport(e, user.get().getAdtId());
+					log.info("Sheet generated for employee {}: ",user.get().getFirstName() + " " + user.get().getLastName());
 					mailService.sendEmailForTimeSheet(employeeReport,
 							user.get().getFirstName() + " " + user.get().getLastName(), user.get().getEmail(),
 							startDate.format(formatter) + " to " + endDate.format(formatter));
 
 				} catch (IOException ex) {
-					log.error("Error while generating timesheet report.", ex.getMessage());
+					log.error("Error while generating timesheet report. {} ", ex.getMessage());
 				}
 			});
 		}
 	}
-
-	private ByteArrayOutputStream generateExcelReport(List<TimeSheetModel> timeSheet) throws IOException {
+ 
+	private ByteArrayOutputStream generateExcelReport(List<TimeSheetModel> timeSheet, String adtId) throws IOException {
 		XSSFWorkbook workbook = new XSSFWorkbook();
 		Sheet sheet = workbook.createSheet("TimeSheet Report");
 
@@ -127,12 +116,13 @@ public class MonthlyScheduler {
 		int rowNum = 1;
 		for (TimeSheetModel timeSheetModel : timeSheet) {
 			Row row = sheet.createRow(rowNum++);
-			row.createCell(0).setCellValue(String.valueOf(timeSheetModel.getEmployeeId()));
+			//row.createCell(0).setCellValue(String.valueOf(timeSheetModel.getEmployeeId()));
+			row.createCell(0).setCellValue(adtId);
 			row.createCell(1).setCellValue(timeSheetModel.getCheckIn() != null ? timeSheetModel.getCheckIn() : "NULL");
 			row.createCell(2)
 					.setCellValue(timeSheetModel.getCheckOut() != null ? timeSheetModel.getCheckOut() : "NULL");
 			row.createCell(3)
-					.setCellValue(timeSheetModel.getWorkingHour() != null ? timeSheetModel.getWorkingHour() : "NULL");
+					.setCellValue(timeSheetModel.getTotalWorkingHours() != null ? timeSheetModel.getTotalWorkingHours().toString() : "NULL");
 			row.createCell(4).setCellValue(timeSheetModel.getDate() != null ? timeSheetModel.getDate() : "NULL");
 			row.createCell(5).setCellValue(timeSheetModel.getDay() != null ? timeSheetModel.getDay() : "NULL");
 		}

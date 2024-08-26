@@ -428,7 +428,7 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 
 			mailSender.send(mimeMessage);
 
-			log.info("Mail send Successfully");
+			log.info("Mail send Successfully to {} ", gmail);
 		} catch (MessagingException e) {
 			log.info("Error");
 
