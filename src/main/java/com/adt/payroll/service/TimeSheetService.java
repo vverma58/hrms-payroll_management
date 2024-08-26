@@ -67,6 +67,9 @@ List<TimesheetDTO> empAttendence(int empId, LocalDate fromDate, LocalDate toDate
     
 	public String earlyCheckOut(double latitude, double longitude, int empId,String reason, String reasonType) throws ParseException;
 
-//	String updateCheckInCheckOutByEmpId(int empId, String checkInTime, String checkOutTime);
+	String updateCheckInCheckOutByEmpId(int empId, String checkInTime, String checkOutTime, String date);
+
+	Optional<TimeSheetModel> getTimeSheetByEmployeeIdAndDate(int employeeId, String date);
+
 }
 

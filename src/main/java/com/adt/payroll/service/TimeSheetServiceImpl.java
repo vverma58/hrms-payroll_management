@@ -10,10 +10,7 @@ import java.text.DateFormat;
 import java.text.DateFormatSymbols;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.Month;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -53,12 +50,11 @@ import com.adt.payroll.repository.PriorTimeRepository;
 import com.adt.payroll.repository.TimeSheetRepo;
 import com.adt.payroll.repository.UserRepo;
 
-import java.time.DayOfWeek;
 import java.time.format.TextStyle;
 import java.util.*;
 
 @Service
-public class TimeSheetServiceImpl implements TimeSheetService ,PriorTimeService{
+public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService {
 
     private final Logger LOGGER = LoggerFactory.getLogger(this.getClass());
 
@@ -77,11 +73,11 @@ public class TimeSheetServiceImpl implements TimeSheetService ,PriorTimeService{
 
     @Autowired
     private EmployeeExpenseRepo employeeExpenseRepo;
-    
+
     @Autowired
     ApplicationEventPublisher applicationEventPublisher;
 
-    private static final List<String> Status = Arrays.asList("Rejected","Resend", "Approved", "Accepted", "Pending");
+    private static final List<String> Status = Arrays.asList("Rejected", "Resend", "Approved", "Accepted", "Pending");
 
     public void updateDaysForPresentStatus() {
         timeSheetRepo.updateDaysForPresentEntries();
@@ -101,18 +97,18 @@ public class TimeSheetServiceImpl implements TimeSheetService ,PriorTimeService{
 
     @Value("${MAX_DISTANCE_THRESHOLD}")
     private double MAX_DISTANCE_THRESHOLD;
-    
+
     @Value("${-Dmy.port}")
-   	private String serverPort;
+    private String serverPort;
 
-   	@Value("${-Dmy.property}")
-   	private String ipaddress;
-   	
-   	@Value("${-UI.scheme}")
-   	private String scheme;
+    @Value("${-Dmy.property}")
+    private String ipaddress;
 
-   	@Value("${-UI.context}")
-   	private String context;
+    @Value("${-UI.scheme}")
+    private String scheme;
+
+    @Value("${-UI.context}")
+    private String context;
 
     @Override
     public String updateCheckIn(int empId, double latitude, double longitude) {
@@ -177,8 +173,8 @@ public class TimeSheetServiceImpl implements TimeSheetService ,PriorTimeService{
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HH:mm:ss");
             Date date1 = simpleDateFormat.parse(currentDateTime.getCurrentTime());
             Date date2 = simpleDateFormat.parse(timeSheetModel.getCheckIn());
-            
-           
+
+
             long differenceInMilliSeconds = Math.abs(date2.getTime() - date1.getTime());
             long differenceInHours = (differenceInMilliSeconds / (60 * 60 * 1000)) % 24;
             long differenceInMinutes = (differenceInMilliSeconds / (60 * 1000)) % 60;
@@ -280,12 +276,12 @@ public class TimeSheetServiceImpl implements TimeSheetService ,PriorTimeService{
     // priorTimeaAjustment
     @Override
     public List<ResponseModel> checkPriorStatus(int empId) {
-    	LOGGER.info("getPriorTimeData");
+        LOGGER.info("getPriorTimeData");
         TimeSheetModel timeSheetModel = new TimeSheetModel();
         List<ResponseModel> list = new ArrayList<>();
         User use = userRepo.getById(empId);
         SimpleDateFormat f = new SimpleDateFormat("dd-MM-yyyy");
-        SimpleDateFormat dateformater = new SimpleDateFormat("yyyy-MM-dd");  
+        SimpleDateFormat dateformater = new SimpleDateFormat("yyyy-MM-dd");
         Calendar cal = Calendar.getInstance();
         Calendar calender = Calendar.getInstance();
         cal.add(Calendar.DATE, -1);
@@ -293,80 +289,80 @@ public class TimeSheetServiceImpl implements TimeSheetService ,PriorTimeService{
         String from = dateformater.format(cal.getTime());
         String to = dateformater.format(calender.getTime());
         try {
-        String leaveSql ="SELECT ld.leavedate FROM payroll_schema.leave_dates ld JOIN payroll_schema.leave_request lr ON lr.leaveid = ld.leave_id WHERE lr.empid = "+empId+"  AND ld.leavedate BETWEEN "+"'"+to+"'"+" AND "+"'"+from+"'";
-        LOGGER.info(leaveSql);
-        List<Map<String, Object>> leaveData = dataExtractor.extractDataFromTable(leaveSql);
-        List<String> listOfLeaveDate = new ArrayList<>();
-        for (Map<String, Object> leave : leaveData) {
-        	listOfLeaveDate.add(String.valueOf(leave.get("leavedate")));
-        }
-        String sql = "select * from employee_schema.holiday";
-        LOGGER.info(sql);
-        List<Map<String, Object>> tableData = dataExtractor.extractDataFromTable(sql);
-        List<String> listOfDate = new ArrayList<>();
-        for (Map<String, Object> holiday : tableData) {
-            listOfDate.add(String.valueOf(holiday.get("date")));
-        }
-        int temp = 15;
-        boolean checkDay;
-        while (temp > 0) {
-            checkDay = true;
-            ResponseModel responseModel = new ResponseModel();
-            responseModel.setEmployeeId(empId);
-            String checkDate = dateformater.format(cal.getTime());
-            LOGGER.info("checkDate"+checkDate);
-            int dayNumber = cal.get(Calendar.DAY_OF_MONTH);
-            String dayNames[] = new DateFormatSymbols().getWeekdays();
-            String nameDay = dayNames[cal.get(Calendar.DAY_OF_WEEK)];
-            if ((nameDay.equalsIgnoreCase(Util.SATURDAY))
-                    && ((dayNumber >= 8 && dayNumber <= 14) || (dayNumber >= 22 && dayNumber <= 28))
-                    || (nameDay.equalsIgnoreCase(Util.SUNDAY)) || (listOfDate.contains(checkDate))||(listOfLeaveDate.contains(checkDate))) {
-                checkDay = false;
+            String leaveSql = "SELECT ld.leavedate FROM payroll_schema.leave_dates ld JOIN payroll_schema.leave_request lr ON lr.leaveid = ld.leave_id WHERE lr.empid = " + empId + "  AND ld.leavedate BETWEEN " + "'" + to + "'" + " AND " + "'" + from + "'";
+            LOGGER.info(leaveSql);
+            List<Map<String, Object>> leaveData = dataExtractor.extractDataFromTable(leaveSql);
+            List<String> listOfLeaveDate = new ArrayList<>();
+            for (Map<String, Object> leave : leaveData) {
+                listOfLeaveDate.add(String.valueOf(leave.get("leavedate")));
             }
-            String date = f.format(cal.getTime());
-            cal.add(Calendar.DATE, -1);
-            if (checkDay) {
-                responseModel.setStatus("Pending");
-                responseModel.setDate(date);
-                responseModel.setEmail(use.getEmail());
-                LOGGER.info("Get last 15 days CheckIn and CheckOut Data");
-                Optional<TimeSheetModel> timeSheetModelData = timeSheetRepo.findByEmployeeIdAndDate(empId, date);
-                LOGGER.info("Present priortime date"+checkDate);
-                LOGGER.info(""+timeSheetModelData);
-                if (!timeSheetModelData.isPresent()) {
-                    LOGGER.info("checkIn and checkout data not present in timesheet ");
-                    list.add(responseModel);
-                } else if (timeSheetModelData.get().getCheckOut() == null && !timeSheetModelData.isEmpty()) {
-                    LOGGER.info("checkIn and checkout data present in timesheet ");
-                    responseModel.setCheckIn(timeSheetModelData.get().getCheckIn());
-                    responseModel.setStatus("Pending");
-                    responseModel.setWorkingHour(timeSheetModelData.get().getWorkingHour());
-                    responseModel.setCheckOut(timeSheetModelData.get().getCheckOut());
-                    responseModel.setDate(timeSheetModelData.get().getDate());
-                    responseModel.setEmail(use.getEmail());
-                    list.add(responseModel);
+            String sql = "select * from employee_schema.holiday";
+            LOGGER.info(sql);
+            List<Map<String, Object>> tableData = dataExtractor.extractDataFromTable(sql);
+            List<String> listOfDate = new ArrayList<>();
+            for (Map<String, Object> holiday : tableData) {
+                listOfDate.add(String.valueOf(holiday.get("date")));
+            }
+            int temp = 15;
+            boolean checkDay;
+            while (temp > 0) {
+                checkDay = true;
+                ResponseModel responseModel = new ResponseModel();
+                responseModel.setEmployeeId(empId);
+                String checkDate = dateformater.format(cal.getTime());
+                LOGGER.info("checkDate" + checkDate);
+                int dayNumber = cal.get(Calendar.DAY_OF_MONTH);
+                String dayNames[] = new DateFormatSymbols().getWeekdays();
+                String nameDay = dayNames[cal.get(Calendar.DAY_OF_WEEK)];
+                if ((nameDay.equalsIgnoreCase(Util.SATURDAY))
+                        && ((dayNumber >= 8 && dayNumber <= 14) || (dayNumber >= 22 && dayNumber <= 28))
+                        || (nameDay.equalsIgnoreCase(Util.SUNDAY)) || (listOfDate.contains(checkDate)) || (listOfLeaveDate.contains(checkDate))) {
+                    checkDay = false;
                 }
+                String date = f.format(cal.getTime());
+                cal.add(Calendar.DATE, -1);
+                if (checkDay) {
+                    responseModel.setStatus("Pending");
+                    responseModel.setDate(date);
+                    responseModel.setEmail(use.getEmail());
+                    LOGGER.info("Get last 15 days CheckIn and CheckOut Data");
+                    Optional<TimeSheetModel> timeSheetModelData = timeSheetRepo.findByEmployeeIdAndDate(empId, date);
+                    LOGGER.info("Present priortime date" + checkDate);
+                    LOGGER.info("" + timeSheetModelData);
+                    if (!timeSheetModelData.isPresent()) {
+                        LOGGER.info("checkIn and checkout data not present in timesheet ");
+                        list.add(responseModel);
+                    } else if (timeSheetModelData.get().getCheckOut() == null && !timeSheetModelData.isEmpty()) {
+                        LOGGER.info("checkIn and checkout data present in timesheet ");
+                        responseModel.setCheckIn(timeSheetModelData.get().getCheckIn());
+                        responseModel.setStatus("Pending");
+                        responseModel.setWorkingHour(timeSheetModelData.get().getWorkingHour());
+                        responseModel.setCheckOut(timeSheetModelData.get().getCheckOut());
+                        responseModel.setDate(timeSheetModelData.get().getDate());
+                        responseModel.setEmail(use.getEmail());
+                        list.add(responseModel);
+                    }
 
-				Optional<Priortime> priortime = priorTimeRepository.findByEmployeeIdAndDate(empId, date);
-                LOGGER.info("Pending Priortime Data");
-				if (priortime.isPresent()) {
-					Priortime prior = priortime.get();
-					long currentTime = System.currentTimeMillis();
-					if (priortime.get().getExpiryTime() <= currentTime
-							&& !prior.getStatus().equalsIgnoreCase("Accepted")) {
-						responseModel.setStatus("Resend");
-						prior.setStatus("Resend");
-						priorTimeRepository.save(prior);
-					}
-				}
+                    Optional<Priortime> priortime = priorTimeRepository.findByEmployeeIdAndDate(empId, date);
+                    LOGGER.info("Pending Priortime Data");
+                    if (priortime.isPresent()) {
+                        Priortime prior = priortime.get();
+                        long currentTime = System.currentTimeMillis();
+                        if (priortime.get().getExpiryTime() <= currentTime
+                                && !prior.getStatus().equalsIgnoreCase("Accepted")) {
+                            responseModel.setStatus("Resend");
+                            prior.setStatus("Resend");
+                            priorTimeRepository.save(prior);
+                        }
+                    }
 
-			}
-			temp--;
-		}
-        }catch(Exception e) {
-        	LOGGER.error(e.getMessage());
+                }
+                temp--;
+            }
+        } catch (Exception e) {
+            LOGGER.error(e.getMessage());
         }
-        LOGGER.info("getAllDataSuccessfully return"+list);
+        LOGGER.info("getAllDataSuccessfully return" + list);
         return list;
     }
 
@@ -415,8 +411,8 @@ public class TimeSheetServiceImpl implements TimeSheetService ,PriorTimeService{
         priortimeuser.setMonth(month.toUpperCase());
         priortimeuser.setYear(year.toUpperCase());
         long millisecondsInFiveDays = TimeUnit.DAYS.toMillis(5);
-		long currentTime=System.currentTimeMillis();
-        priortimeuser.setExpiryTime(currentTime+millisecondsInFiveDays);
+        long currentTime = System.currentTimeMillis();
+        priortimeuser.setExpiryTime(currentTime + millisecondsInFiveDays);
         Priortime priortime = priorTimeRepository.save(priortimeuser);
         return Optional.ofNullable(priortime);
     }
@@ -471,7 +467,7 @@ public class TimeSheetServiceImpl implements TimeSheetService ,PriorTimeService{
             TimesheetDTO timesheetDTO = TimesheetDTO.builder().employeeId(timeSheetModel.getEmployeeId())
                     .date(timeSheetModel.getDate()).checkIn(timeSheetModel.getCheckIn())
                     .checkOut(timeSheetModel.getCheckOut()).day(timeSheetModel.getDayOfWeek())
-                    .workingHour(timeSheetModel.getTotalWorkingHours()!=null?timeSheetModel.getTotalWorkingHours().toString():"")
+                    .workingHour(timeSheetModel.getTotalWorkingHours() != null ? timeSheetModel.getTotalWorkingHours().toString() : "")
                     .leaveInterval(timeSheetModel.getLeaveInterval()).status(timeSheetModel.getStatus()).build();
             timesheetDTOList.add(timesheetDTO);
         }
@@ -480,7 +476,7 @@ public class TimeSheetServiceImpl implements TimeSheetService ,PriorTimeService{
         timesheetDTOList.sort((ts1, ts2) -> {
             LocalDate date1 = LocalDate.parse(ts1.getDate(), formatter);
             LocalDate date2 = LocalDate.parse(ts2.getDate(), formatter);
-            return date2.compareTo(date1); 
+            return date2.compareTo(date1);
         });
 
         return timesheetDTOList;
@@ -762,150 +758,163 @@ public class TimeSheetServiceImpl implements TimeSheetService ,PriorTimeService{
         return employeeNames;
 
     }
-    
-    public  String reSendPriorTimeRequest(int priortimeId) {
-    Optional<Priortime>  priorTimeRequest= priorTimeRepository.findById(priortimeId);
-	if (priorTimeRequest.isPresent()) {
-		Priortime priortime=priorTimeRequest.get();
-		priortime.setStatus("Pending");
-		long millisecondsInFiveDays = TimeUnit.DAYS.toMillis(5);
-   		long currentTime=System.currentTimeMillis();
-   		priortime.setExpiryTime(currentTime+millisecondsInFiveDays);
-   	  UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance()
-				.scheme(scheme)
-				.host(ipaddress)
-				.port(serverPort)
-				.path(context+"/payroll/timeSheet/updatePriorTime/Accepted/" + priortimeId);              
-      UriComponentsBuilder urlBuilder2 = ServletUriComponentsBuilder.newInstance()
-				.scheme(scheme)
-				.host(ipaddress)
-				.port(serverPort)
-				.path(context+"/payroll/timeSheet/updatePriorTime/Rejected/" + priortimeId);
-      OnPriorTimeDetailsSavedEvent onPriorTimeDetailsSavedEvent = new OnPriorTimeDetailsSavedEvent(priortime,
-              urlBuilder1, urlBuilder2);
-      applicationEventPublisher.publishEvent(onPriorTimeDetailsSavedEvent);	
-       priorTimeRepository.save(priortime);
-      return "reSend email successfully";
-	}
-   
-   	return "this records  not persent "; 
-   	 
+
+    public String reSendPriorTimeRequest(int priortimeId) {
+        Optional<Priortime> priorTimeRequest = priorTimeRepository.findById(priortimeId);
+        if (priorTimeRequest.isPresent()) {
+            Priortime priortime = priorTimeRequest.get();
+            priortime.setStatus("Pending");
+            long millisecondsInFiveDays = TimeUnit.DAYS.toMillis(5);
+            long currentTime = System.currentTimeMillis();
+            priortime.setExpiryTime(currentTime + millisecondsInFiveDays);
+            UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance()
+                    .scheme(scheme)
+                    .host(ipaddress)
+                    .port(serverPort)
+                    .path(context + "/payroll/timeSheet/updatePriorTime/Accepted/" + priortimeId);
+            UriComponentsBuilder urlBuilder2 = ServletUriComponentsBuilder.newInstance()
+                    .scheme(scheme)
+                    .host(ipaddress)
+                    .port(serverPort)
+                    .path(context + "/payroll/timeSheet/updatePriorTime/Rejected/" + priortimeId);
+            OnPriorTimeDetailsSavedEvent onPriorTimeDetailsSavedEvent = new OnPriorTimeDetailsSavedEvent(priortime,
+                    urlBuilder1, urlBuilder2);
+            applicationEventPublisher.publishEvent(onPriorTimeDetailsSavedEvent);
+            priorTimeRepository.save(priortime);
+            return "reSend email successfully";
+        }
+
+        return "this records  not persent ";
+
     }
-    
-public String checkInCheckOutForContractBasedEmployee(String workingHours, String date,double latitude,double longitude,int empId) {
-  double distance = calculateDistance(latitude, longitude, COMPANY_LATITUDE, COMPANY_LONGITUDE);
-  Optional<TimeSheetModel>	timeSheet=timeSheetRepo.findByEmployeeIdAndDate(empId,date);
-	if (!timeSheet.isPresent()) {
-		LocalDate dt = LocalDate.parse(date);
-		TimeSheetModel timeSheetData = new TimeSheetModel();
-		timeSheetData.setEmployeeId(empId);
-		timeSheetData.setMonth(dt.getMonth().toString());
-		timeSheetData.setYear("" + dt.getYear());
-		timeSheetData.setWorkingHour(workingHours+":00");
-		timeSheetData.setDate(date);
-		timeSheetData.setCheckInLatitude(Double.toString(latitude));
-		timeSheetData.setCheckInLongitude(Double.toString(longitude));
-		timeSheetData.setCheckInDistance(Double.toString(distance));
-		timeSheetData.setCheckOutDistance(Double.toString(distance));
-		timeSheetData.setCheckOutLatitude(Double.toString(latitude));
-		timeSheetData.setCheckOutLongitude(Double.toString(latitude));
-		timeSheetData.setStatus("Present");
-		LocalDateTime currentDateTime = LocalDateTime.now();
-		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
-		LocalDateTime checkInTime = currentDateTime.withHour(10).withMinute(00).withSecond(0).withNano(0);
-		String checkin = checkInTime.format(formatter);
-		timeSheetData.setCheckIn(checkin);
-		String[] arrayOfHours = workingHours.split(":");
-		String hrs = arrayOfHours[0];
-		String mnt = arrayOfHours[1];
-		int minute = Integer.parseInt(mnt);
-		int hour = Integer.parseInt(hrs);
-		hour=hour + 10;
-		LocalDateTime checkOutTime = checkInTime.withHour(hour).withMinute(minute).withSecond(00).withNano(0);
-		String checkOut = checkOutTime.format(formatter);
-		timeSheetData.setCheckOut(checkOut);
-		timeSheetRepo.save(timeSheetData);
-		 return "TimeSheet data has been submitted successfully";
-	}else {
 
-	}
-	return "TimeSheet data already present for the selected date";
+    public String checkInCheckOutForContractBasedEmployee(String workingHours, String date, double latitude, double longitude, int empId) {
+        double distance = calculateDistance(latitude, longitude, COMPANY_LATITUDE, COMPANY_LONGITUDE);
+        Optional<TimeSheetModel> timeSheet = timeSheetRepo.findByEmployeeIdAndDate(empId, date);
+        if (!timeSheet.isPresent()) {
+            LocalDate dt = LocalDate.parse(date);
+            TimeSheetModel timeSheetData = new TimeSheetModel();
+            timeSheetData.setEmployeeId(empId);
+            timeSheetData.setMonth(dt.getMonth().toString());
+            timeSheetData.setYear("" + dt.getYear());
+            timeSheetData.setWorkingHour(workingHours + ":00");
+            timeSheetData.setDate(date);
+            timeSheetData.setCheckInLatitude(Double.toString(latitude));
+            timeSheetData.setCheckInLongitude(Double.toString(longitude));
+            timeSheetData.setCheckInDistance(Double.toString(distance));
+            timeSheetData.setCheckOutDistance(Double.toString(distance));
+            timeSheetData.setCheckOutLatitude(Double.toString(latitude));
+            timeSheetData.setCheckOutLongitude(Double.toString(latitude));
+            timeSheetData.setStatus("Present");
+            LocalDateTime currentDateTime = LocalDateTime.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+            LocalDateTime checkInTime = currentDateTime.withHour(10).withMinute(00).withSecond(0).withNano(0);
+            String checkin = checkInTime.format(formatter);
+            timeSheetData.setCheckIn(checkin);
+            String[] arrayOfHours = workingHours.split(":");
+            String hrs = arrayOfHours[0];
+            String mnt = arrayOfHours[1];
+            int minute = Integer.parseInt(mnt);
+            int hour = Integer.parseInt(hrs);
+            hour = hour + 10;
+            LocalDateTime checkOutTime = checkInTime.withHour(hour).withMinute(minute).withSecond(00).withNano(0);
+            String checkOut = checkOutTime.format(formatter);
+            timeSheetData.setCheckOut(checkOut);
+            timeSheetRepo.save(timeSheetData);
+            return "TimeSheet data has been submitted successfully";
+        } else {
 
-}
+        }
+        return "TimeSheet data already present for the selected date";
 
-@Override
-public String earlyCheckOut(double latitude, double longitude, int empId,String reason, String reasonType) throws ParseException {
-	   double distance = calculateDistance(latitude, longitude, COMPANY_LATITUDE, COMPANY_LONGITUDE);
-	   CurrentDateTime currentDateTime = util.getDateTime();
-       Optional<TimeSheetModel> timeSheetModelOptional = timeSheetRepo.findByEmployeeIdAndDate(empId,
-               currentDateTime.getCurrentDate());
-       if (timeSheetModelOptional.isPresent()) {
-           TimeSheetModel timeSheetModel = timeSheetModelOptional.get();
-           if (timeSheetModel.getCheckOut() != null) {
-               return "You Are Already Check Out";
-           }
-           timeSheetModel.setCheckOut(currentDateTime.getCurrentTime());
-           SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HH:mm:ss");
-           Date date1 = simpleDateFormat.parse(currentDateTime.getCurrentTime());
-           Date date2 = simpleDateFormat.parse(timeSheetModel.getCheckIn());
-           long differenceInMilliSeconds = Math.abs(date2.getTime() - date1.getTime());
-           long differenceInHours = (differenceInMilliSeconds / (60 * 60 * 1000)) % 24;
-           long differenceInMinutes = (differenceInMilliSeconds / (60 * 1000)) % 60;
-           long differenceInSeconds = (differenceInMilliSeconds / 1000) % 60;
-           timeSheetModel
-                   .setWorkingHour(differenceInHours + ":" + differenceInMinutes + ":" + differenceInSeconds);
-           if (timeSheetModel.getLeaveInterval() != null && !timeSheetModel.getLeaveInterval().isEmpty()) {
-               if (!timeSheetModel.getIntervalStatus()) {
-                   return "Please Resume Your Break";
-               }
-               String poseResumeInterval = timeSheetModel.getLeaveInterval();
-               String arr[] = poseResumeInterval.split(":");
-               long inOutDiff = TimeUnit.HOURS.toMillis(differenceInHours)
-                       + TimeUnit.MINUTES.toMillis(differenceInMinutes)
-                       + TimeUnit.SECONDS.toMillis(differenceInSeconds);
+    }
 
-               long poseResumeDiff = TimeUnit.HOURS.toMillis(Integer.parseInt(arr[0]))
-                       + TimeUnit.MINUTES.toMillis(Integer.parseInt(arr[1]))
-                       + TimeUnit.SECONDS.toMillis(Integer.parseInt(arr[2]));
+    @Override
+    public String earlyCheckOut(double latitude, double longitude, int empId, String reason, String reasonType) throws ParseException {
+        double distance = calculateDistance(latitude, longitude, COMPANY_LATITUDE, COMPANY_LONGITUDE);
+        CurrentDateTime currentDateTime = util.getDateTime();
+        Optional<TimeSheetModel> timeSheetModelOptional = timeSheetRepo.findByEmployeeIdAndDate(empId,
+                currentDateTime.getCurrentDate());
+        if (timeSheetModelOptional.isPresent()) {
+            TimeSheetModel timeSheetModel = timeSheetModelOptional.get();
+            if (timeSheetModel.getCheckOut() != null) {
+                return "You Are Already Check Out";
+            }
+            timeSheetModel.setCheckOut(currentDateTime.getCurrentTime());
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HH:mm:ss");
+            Date date1 = simpleDateFormat.parse(currentDateTime.getCurrentTime());
+            Date date2 = simpleDateFormat.parse(timeSheetModel.getCheckIn());
+            long differenceInMilliSeconds = Math.abs(date2.getTime() - date1.getTime());
+            long differenceInHours = (differenceInMilliSeconds / (60 * 60 * 1000)) % 24;
+            long differenceInMinutes = (differenceInMilliSeconds / (60 * 1000)) % 60;
+            long differenceInSeconds = (differenceInMilliSeconds / 1000) % 60;
+            timeSheetModel
+                    .setWorkingHour(differenceInHours + ":" + differenceInMinutes + ":" + differenceInSeconds);
+            if (timeSheetModel.getLeaveInterval() != null && !timeSheetModel.getLeaveInterval().isEmpty()) {
+                if (!timeSheetModel.getIntervalStatus()) {
+                    return "Please Resume Your Break";
+                }
+                String poseResumeInterval = timeSheetModel.getLeaveInterval();
+                String arr[] = poseResumeInterval.split(":");
+                long inOutDiff = TimeUnit.HOURS.toMillis(differenceInHours)
+                        + TimeUnit.MINUTES.toMillis(differenceInMinutes)
+                        + TimeUnit.SECONDS.toMillis(differenceInSeconds);
 
-               long workingMilisecond = inOutDiff - poseResumeDiff;
-               long hours = TimeUnit.MILLISECONDS.toHours(workingMilisecond);
-               long minutes = TimeUnit.MILLISECONDS.toMinutes(workingMilisecond) % 60;
-               long seconds = TimeUnit.MILLISECONDS.toSeconds(workingMilisecond) % 60;
-               String formattedTime = String.format("%02d:%02d:%02d", hours, minutes, seconds);
-               timeSheetModel.setWorkingHour(formattedTime);
-           }
-           timeSheetModel.setStatus("Present");
-           timeSheetModel.setIntervalStatus(false);
+                long poseResumeDiff = TimeUnit.HOURS.toMillis(Integer.parseInt(arr[0]))
+                        + TimeUnit.MINUTES.toMillis(Integer.parseInt(arr[1]))
+                        + TimeUnit.SECONDS.toMillis(Integer.parseInt(arr[2]));
 
-           if (distance >= MAX_DISTANCE_THRESHOLD) {
-               timeSheetModel.setCheckOutLatitude(String.valueOf(latitude));
-               timeSheetModel.setCheckOutLongitude(String.valueOf(longitude));
-               timeSheetModel.setCheckOutDistance(String.valueOf(distance));
-               timeSheetRepo.save(timeSheetModel);
-               return " you have Check out with latitude: " + latitude + " and longitude: " + longitude + ", which are not within office covered distance";
-           }
-           timeSheetModel.setReasonType(reasonType);
-           timeSheetModel.setReason(reason);
-           timeSheetModel.setEarlyCheckOutStatus(true);
-           timeSheetModel.setCheckOutLatitude(String.valueOf(latitude));
-           timeSheetModel.setCheckOutLongitude(String.valueOf(longitude));
-           timeSheetModel.setCheckOutDistance(String.valueOf(distance));
-           timeSheetRepo.save(timeSheetModel);
-           return "you have Check out with latitude: " + latitude + " and longitude: " + longitude;
-       }
-       return "You Are Not Check in";
+                long workingMilisecond = inOutDiff - poseResumeDiff;
+                long hours = TimeUnit.MILLISECONDS.toHours(workingMilisecond);
+                long minutes = TimeUnit.MILLISECONDS.toMinutes(workingMilisecond) % 60;
+                long seconds = TimeUnit.MILLISECONDS.toSeconds(workingMilisecond) % 60;
+                String formattedTime = String.format("%02d:%02d:%02d", hours, minutes, seconds);
+                timeSheetModel.setWorkingHour(formattedTime);
+            }
+            timeSheetModel.setStatus("Present");
+            timeSheetModel.setIntervalStatus(false);
 
-}
+            if (distance >= MAX_DISTANCE_THRESHOLD) {
+                timeSheetModel.setCheckOutLatitude(String.valueOf(latitude));
+                timeSheetModel.setCheckOutLongitude(String.valueOf(longitude));
+                timeSheetModel.setCheckOutDistance(String.valueOf(distance));
+                timeSheetRepo.save(timeSheetModel);
+                return " you have Check out with latitude: " + latitude + " and longitude: " + longitude + ", which are not within office covered distance";
+            }
+            timeSheetModel.setReasonType(reasonType);
+            timeSheetModel.setReason(reason);
+            timeSheetModel.setEarlyCheckOutStatus(true);
+            timeSheetModel.setCheckOutLatitude(String.valueOf(latitude));
+            timeSheetModel.setCheckOutLongitude(String.valueOf(longitude));
+            timeSheetModel.setCheckOutDistance(String.valueOf(distance));
+            timeSheetRepo.save(timeSheetModel);
+            return "you have Check out with latitude: " + latitude + " and longitude: " + longitude;
+        }
+        return "You Are Not Check in";
+    }
+
     @Override
     public List<Priortime> getPriorTimeHistoryByEmployeeId(int employeeId) {
         return priorTimeRepository.findByEmployeeIdAndStatusIn(employeeId, Status);
     }
 
-
-   /* @Override
-    public String updateCheckInCheckOutByEmpId(int empId, String checkInTime, String checkOutTime) {
-        Optional<TimeSheetModel> timeSheetModels = timeSheetRepo.findByEmployeeIdAndDate(empId, util.getDateTime().getCurrentDate());
+    @Override
+    public String updateCheckInCheckOutByEmpId(int empId, String checkInTime, String checkOutTime, String date) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+        LocalDate localDate;
+        if (date != null && !date.isEmpty()) {
+            try {
+                localDate = LocalDate.parse(date, formatter);
+            } catch (Exception e) {
+                LOGGER.error("Invalid date format provided: " + date, e);
+                return "Invalid date format. Please use dd-MM-yyyy.";
+            }
+        } else {
+            localDate = LocalDate.now();
+        }
+        String formattedDate = localDate.format(formatter);
+        LOGGER.info("Looking for timesheet entry with empId: " + empId + " and date: " + formattedDate);
+        Optional<TimeSheetModel> timeSheetModels = timeSheetRepo.findByEmployeeIdAndDate(empId, formattedDate);
         if (!timeSheetModels.isPresent()) {
             return "No time sheet entry found for the given employee and date.";
         }
@@ -916,7 +925,41 @@ public String earlyCheckOut(double latitude, double longitude, int empId,String 
         if (checkOutTime != null && !checkOutTime.isEmpty()) {
             timeSheetModel.setCheckOut(checkOutTime);
         }
-        timeSheetRepo.save(timeSheetModel);
-        return "Check-in and check-out times updated successfully.";
-    }*/
+        if (timeSheetModel.getCheckIn() != null && timeSheetModel.getCheckOut() != null) {
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HH:mm:ss");
+            LocalTime checkInLocalTime = LocalTime.parse(timeSheetModel.getCheckIn());
+            LocalTime checkOutLocalTime = LocalTime.parse(timeSheetModel.getCheckOut());
+            Duration duration = Duration.between(checkInLocalTime, checkOutLocalTime);
+            long hours = duration.toHours();
+            long minutes = (duration.toMinutes() % 60);
+            long seconds = (duration.toSeconds() % 60);
+            Time timeDifference = Time.valueOf(LocalTime.of((int) hours, (int) minutes, (int) seconds));
+            timeSheetModel.setTotalWorkingHours(timeDifference);
+            if (timeSheetModel.getLeaveInterval() != null && !timeSheetModel.getLeaveInterval().isEmpty()) {
+                String[] intervalParts = timeSheetModel.getLeaveInterval().split(":");
+                long leaveIntervalMillis = TimeUnit.HOURS.toMillis(Integer.parseInt(intervalParts[0]))
+                        + TimeUnit.MINUTES.toMillis(Integer.parseInt(intervalParts[1]))
+                        + TimeUnit.SECONDS.toMillis(Integer.parseInt(intervalParts[2]));
+                long workingMillis = duration.toMillis() - leaveIntervalMillis;
+                long workingHours = TimeUnit.MILLISECONDS.toHours(workingMillis);
+                long workingMinutes = TimeUnit.MILLISECONDS.toMinutes(workingMillis) % 60;
+                long workingSeconds = TimeUnit.MILLISECONDS.toSeconds(workingMillis) % 60;
+                String formattedWorkingTime = String.format("%02d:%02d:%02d", workingHours, workingMinutes, workingSeconds);
+                timeSheetModel.setWorkingHour(formattedWorkingTime);
+            } else {
+                String formattedWorkingTime = String.format("%02d:%02d:%02d", hours, minutes, seconds);
+                timeSheetModel.setWorkingHour(formattedWorkingTime);
+            }
+            timeSheetModel.setStatus("Present");
+            timeSheetModel.setIntervalStatus(false);
+            timeSheetRepo.save(timeSheetModel);
+            return "Check-in and check-out times updated successfully.";
+        }
+        return "Both check-in and check-out times must be provided to calculate working hours.";
+    }
+
+    @Override
+    public Optional<TimeSheetModel> getTimeSheetByEmployeeIdAndDate(int employeeId, String date) {
+        return timeSheetRepo.findByEmployeeIdAndDate(employeeId, date);
+    }
 }
