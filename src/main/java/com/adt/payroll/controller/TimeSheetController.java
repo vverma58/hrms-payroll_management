@@ -147,7 +147,7 @@ public class TimeSheetController {
 
     @PreAuthorize("@auth.allow('GET_ALL_EMPLOYEE_ATTENDANCE')")
     @GetMapping("/allEmpAttendence")
-    public ResponseEntity<List<TimesheetDTO>> allEmpAttendence(
+    public ResponseEntity<List<TimeSheetModel>> allEmpAttendence(
             @RequestParam("fromDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate fromDate,
             @RequestParam("toDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate toDate,
             HttpServletRequest request) {
