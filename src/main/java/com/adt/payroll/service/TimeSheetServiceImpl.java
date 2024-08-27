@@ -483,40 +483,28 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
     }
 
     @Override
-    public List<TimesheetDTO> allEmpAttendence(LocalDate fromDate, LocalDate toDate) {
+    public List<TimeSheetModel> allEmpAttendence(LocalDate fromDate, LocalDate toDate) {
         DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
         String startDate = dateTimeFormatter.format(fromDate);
         String endDate = dateTimeFormatter.format(toDate);
-        // Fetch all attendance records within the specified date range
-        List<TimeSheetModel> timeSheetModelList = timeSheetRepo.findAllWithinSpecifiedDateRange(startDate, endDate);
-        // Convert TimeSheetModel to TimesheetDTO
-        List<TimesheetDTO> timesheetDTOList = new ArrayList<>();
-        for (TimeSheetModel timeSheetModel : timeSheetModelList) {
-            // Fetch employee details
-            Optional<User> userOptional = userRepo.findById(timeSheetModel.getEmployeeId());
-            String employeeName = userOptional.map(user -> user.getFirstName() + " " + user.getLastName())
-                    .orElse("NOT AVAILABLE");
-            // Create TimesheetDTO
-            TimesheetDTO timesheetDTO = TimesheetDTO.builder()
-                    .employeeId(timeSheetModel.getEmployeeId())
-                    .date(timeSheetModel.getDate())
-                    .status(timeSheetModel.getStatus())
-                    .workingHour(timeSheetModel.getTotalWorkingHours() != null ? timeSheetModel.getTotalWorkingHours().toString() : "")
-                    .checkIn(timeSheetModel.getCheckIn())
-                    .checkOut(timeSheetModel.getCheckOut())
-                    .leaveInterval(timeSheetModel.getLeaveInterval())
-                    .day(timeSheetModel.getDayOfWeek())
-                    .build();
-            timesheetDTOList.add(timesheetDTO);
-        }
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-        timesheetDTOList.sort((dto1, dto2) -> {
-            LocalDate date1 = LocalDate.parse(dto1.getDate(), formatter);
-            LocalDate date2 = LocalDate.parse(dto2.getDate(), formatter);
-            return date1.compareTo(date2); // Sort in ascending order
 
-        });
-        return timesheetDTOList;
+        List<TimeSheetModel> list = timeSheetRepo.findAllWithinSpecifiedDateRange(startDate, endDate).stream()
+                .filter(e -> e != null)
+                .map(e -> {
+                    Optional<User> t = userRepo.findById(e.getEmployeeId());
+                    if (t.isPresent()) {
+                        e.setEmployeeName(t.get().getFirstName() + " " + t.get().getLastName());
+                    } else {
+                        e.setEmployeeName("NOT AVAILABLE");
+                    }
+                    // Set the day of the week
+                    e.setDayOfWeek(e.getDayOfWeek());
+                    return e;
+                })
+                .sorted(Comparator.comparing(e -> LocalDate.parse(e.getDate(), DateTimeFormatter.ofPattern("dd-MM-yyyy"))))
+                .collect(Collectors.toList());
+
+        return list;
     }
 
     @Override
