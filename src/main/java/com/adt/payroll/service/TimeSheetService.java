@@ -23,7 +23,7 @@ import com.adt.payroll.msg.ResponseModel;
 
 
 public interface TimeSheetService {
-	public String updateCheckIn(int empId,double latitude,double longitude);
+	public String updateCheckIn(int empId,double latitude,double longitude) throws ParseException;
 
 	public String updateCheckOut(int empId, double latitude, double longitude) throws ParseException;
 
