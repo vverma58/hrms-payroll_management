@@ -2,13 +2,13 @@ package com.adt.payroll.service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
-import com.adt.payroll.event.*;
-import com.adt.payroll.model.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,11 +22,27 @@ import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
 
 import com.adt.payroll.config.Auth;
 import com.adt.payroll.dto.EmployeeExpenseDTO;
+import com.adt.payroll.event.OnCompOffDetailsSavedEvent;
+import com.adt.payroll.event.OnEmployeeExpenseAcceptOrRejectEvent;
+import com.adt.payroll.event.OnEmployeeExpenseDetailsSavedEvent;
+import com.adt.payroll.event.OnLeaveAcceptOrRejectEvent;
+import com.adt.payroll.event.OnLeaveCancelEvent;
+import com.adt.payroll.event.OnPriorTimeAcceptOrRejectEvent;
+import com.adt.payroll.event.OnPriorTimeDetailsSavedEvent;
+import com.adt.payroll.model.LeaveRequestModel;
+import com.adt.payroll.model.Mail;
+import com.adt.payroll.model.OnLeaveRequestCancelEvent;
+import com.adt.payroll.model.OnLeaveRequestSaveEvent;
+import com.adt.payroll.model.Priortime;
+import com.adt.payroll.model.User;
 import com.adt.payroll.repository.UserRepo;
 
+import freemarker.core.ParseException;
 import freemarker.template.Configuration;
+import freemarker.template.MalformedTemplateNameException;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
+import freemarker.template.TemplateNotFoundException;
 import jakarta.activation.DataSource;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -545,6 +561,46 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 		} catch (Exception e) {
 			throw new MessagingException("Failed to send email", e);
 		}
+	}
+	
+	@Override
+	public void sendEmailVerification(OnCompOffDetailsSavedEvent onUserRegistrationCompleteEvent) throws TemplateNotFoundException, MalformedTemplateNameException, ParseException, IOException, MessagingException {
+		Mail mail =  new Mail();
+		mail.setSubject("Compensation off Request");
+		Optional<User> user = userRepo.findById(onUserRegistrationCompleteEvent.getCompOff().getEmpId());
+		String userEmail = user.get().getEmail();
+		mail.setFrom(userEmail);
+		String sql = "select * from av_schema.priortime_email";
+		List<String> emailArray = new ArrayList<>();
+		List<Map<String, Object>> priortimeData = dataExtractor.extractDataFromTable(sql);
+		for (Map<String, Object> priortime : priortimeData) {
+			String email = String.valueOf(priortime.get("email_id"));
+			String token=auth.tokenGanreate(email);
+	//	mail.setTo("sunalisingh.adt@gmail.com");
+			mail.setTo(email);	
+		mail.getModel().put("compOffApprovalLink", onUserRegistrationCompleteEvent.getRedirectUrl1().toString()+"?Authorization="+token);		
+		mail.getModel().put("compOffRejectionLink", onUserRegistrationCompleteEvent.getRedirectUrl2().toString()+"?Authorization="+token);
+		mail.getModel().put("CheckInTime", onUserRegistrationCompleteEvent.getCompOff().getCheckin().toString());
+		mail.getModel().put("CheckOutTime", onUserRegistrationCompleteEvent.getCompOff().getCheckout().toString());
+	//	mail.getModel().put("workingHours", onUserRegistrationCompleteEvent.getCompOff().getw);
+		mail.getModel().put("EmpId", String.valueOf(onUserRegistrationCompleteEvent.getCompOff().getEmpId()));
+
+		
+		mail.getModel().put("Name", user.get().getFirstName().concat(user.get().getLastName()));
+		mail.getModel().put("Date", onUserRegistrationCompleteEvent.getCompOff().getDate().toString());
+		templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
+		Template template = templateConfiguration.getTemplate("compoff_email_verification.ftl");
+		String mailContent = null;
+		try {
+			mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
+		} catch (IOException | TemplateException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		mail.setContent(mailContent);
+		send(mail);
+		}
+		
 	}
 }
 

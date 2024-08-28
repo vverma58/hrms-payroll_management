@@ -6,17 +6,27 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.sql.Time;
+import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.DateFormatSymbols;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.*;
+import java.time.DayOfWeek;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Month;
 import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -33,25 +43,26 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import com.adt.payroll.config.Auth;
 import com.adt.payroll.dto.CheckStatusDTO;
 import com.adt.payroll.dto.CurrentDateTime;
 import com.adt.payroll.dto.EmployeeExpenseDTO;
 import com.adt.payroll.dto.TimesheetDTO;
+import com.adt.payroll.event.OnCompOffDetailsSavedEvent;
 import com.adt.payroll.event.OnPriorTimeDetailsSavedEvent;
 import com.adt.payroll.exception.NoDataFoundException;
+import com.adt.payroll.model.CompOff;
 import com.adt.payroll.model.EmployeeExpense;
 import com.adt.payroll.model.Priortime;
 import com.adt.payroll.model.TimeSheetModel;
 import com.adt.payroll.model.User;
 import com.adt.payroll.model.payload.PriorTimeManagementRequest;
 import com.adt.payroll.msg.ResponseModel;
+import com.adt.payroll.repository.CompOffRepository;
 import com.adt.payroll.repository.EmployeeExpenseRepo;
 import com.adt.payroll.repository.PriorTimeRepository;
 import com.adt.payroll.repository.TimeSheetRepo;
 import com.adt.payroll.repository.UserRepo;
-
-import java.time.format.TextStyle;
-import java.util.*;
 
 @Service
 public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService {
@@ -76,6 +87,9 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
 
     @Autowired
     ApplicationEventPublisher applicationEventPublisher;
+    
+    @Autowired
+    CompOffRepository compOffRepository;
 
     private static final List<String> Status = Arrays.asList("Rejected", "Resend", "Approved", "Accepted", "Pending");
 
@@ -111,7 +125,7 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
     private String context;
 
     @Override
-    public String updateCheckIn(int empId, double latitude, double longitude) {
+    public String updateCheckIn(int empId, double latitude, double longitude) throws ParseException {
         double distance = calculateDistance(latitude, longitude, COMPANY_LATITUDE, COMPANY_LONGITUDE);
 
         CurrentDateTime currentDateTime = util.getDateTime();
@@ -138,6 +152,24 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
                 timeSheetModel.setCheckInDistance(String.valueOf(distance));
                 timeSheetModel.setCheckInDistanceStatus("checkedIn out of office");
                 timeSheetRepo.save(timeSheetModel);
+                if (Auth.getCompoffRole("ROLE_PROJ_EMPLOYEE")) {
+                	String dateString = currentDateTime.getCurrentDate();
+                	SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd"); // Adjust format to match your date string
+                	Date currentDate = dateFormat.parse(dateString);
+
+					
+					CompOff compOff = compOffRepository.findCompOffByEmployeeIdAndDate(empId, currentDate);
+
+                     if (compOff == null) {
+                    CompOff compoff = new CompOff();
+                    compoff.setCheckin(new Time(new Date().getTime())); 
+                    compoff.setDate(new Date());
+             //       compoff.setStatus("pending");
+              //      compoff.setEmp_id((Integer)empId);
+                    compoff.setEmpId(empId);
+                    compOffRepository.save(compoff);
+                }
+                }
                 return " you have check in with latitude: " + latitude + " and longitude: " + longitude + ", which are not within office covered distance";
             }
             timeSheetModel.setCheckInLatitude(String.valueOf(latitude));
@@ -146,6 +178,22 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
             timeSheetModel.setCheckInDistanceStatus("checkedIn from office");
             LOGGER.info(currentDateTime.getCurrentTime());
             timeSheetRepo.save(timeSheetModel);
+            if (Auth.getCompoffRole("ROLE_PROJ_EMPLOYEE")) {
+            	String dateString = currentDateTime.getCurrentDate();
+            	SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd"); // Adjust format to match your date string
+            	Date currentDate = dateFormat.parse(dateString);
+
+            	CompOff compOff = compOffRepository.findCompOffByEmployeeIdAndDate(empId, currentDate);
+            	 if (compOff == null) {
+                     CompOff compoff = new CompOff();
+                     compoff.setCheckin(new Time(new Date().getTime())); 
+                     compoff.setDate(new Date());
+                     compoff.setStatus("pending");
+               //      compoff.setEmp_id((Integer)empId);
+                     compoff.setEmpId(empId);
+                     compOffRepository.save(compoff);
+                 }
+            }
             return "you have check in with latitude: " + latitude + " and longitude: " + longitude;
         } else {
             TimeSheetModel timeSheetModel = timeSheetModels.get();
@@ -164,6 +212,7 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
         CurrentDateTime currentDateTime = util.getDateTime();
         Optional<TimeSheetModel> timeSheetModelOptional = timeSheetRepo.findByEmployeeIdAndDate(empId,
                 currentDateTime.getCurrentDate());
+        CompOff compOff = new CompOff();
         if (timeSheetModelOptional.isPresent()) {
             TimeSheetModel timeSheetModel = timeSheetModelOptional.get();
             if (timeSheetModel.getCheckOut() != null) {
@@ -206,7 +255,7 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
                 String formattedTime = String.format("%02d:%02d:%02d", hours, minutes, seconds);
                 timeSheetModel.setWorkingHour(formattedTime);
             }
-            timeSheetModel.setStatus("Present");
+    //        timeSheetModel.setStatus("Present");
             timeSheetModel.setIntervalStatus(false);
 
             if (distance >= MAX_DISTANCE_THRESHOLD) {
@@ -215,6 +264,46 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
                 timeSheetModel.setCheckOutDistance(String.valueOf(distance));
                 timeSheetModel.setCheckOutDistanceStatus("checkedOut out of office");
                 timeSheetRepo.save(timeSheetModel);
+                if (Auth.getCompoffRole("ROLE_PROJ_EMPLOYEE")) {
+                	String dateString = "Thu Feb 14 00:00:00 IST 32"; // Example date string
+                	SimpleDateFormat inputFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yy");
+                	Date currentDate = inputFormat.parse(dateString);
+
+                	SimpleDateFormat queryFormat = new SimpleDateFormat("yyyy-MM-dd");
+                	String formattedDate = queryFormat.format(currentDate);
+
+                	Date dateForQuery = queryFormat.parse(formattedDate);
+
+
+                	 compOff = compOffRepository.findCompOffByEmployeeIdAndDate(empId,
+                			 new Date());
+                     if (compOff!=null) {
+                    	 
+                    	 compOff.setCheckout(new Time(new Date().getTime()));
+            	
+                    	 compOff.setStatus("Pending");
+               	Calendar calendar = Calendar.getInstance();
+            	calendar.add(Calendar.MONTH, 2); // Add 2 months to the current date
+            	Timestamp expiryTime = new Timestamp(calendar.getTimeInMillis());
+            	compOff.setExpiryTime(expiryTime);
+            	compOffRepository.save(compOff);
+            	timeSheetModel.setStatus("CompOff");
+            	 timeSheetRepo.save(timeSheetModel);
+                }
+                }
+                UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance()
+         				.scheme(scheme)
+         				.host(ipaddress)
+         				.port(serverPort)
+         				.path(context+"/payroll/timeSheet/empCompOffApprovedOrRejected" + empId);              
+               UriComponentsBuilder urlBuilder2 = ServletUriComponentsBuilder.newInstance()
+         				.scheme(scheme)
+         				.host(ipaddress)
+         				.port(serverPort)
+         				.path(context+"/payroll/timeSheet/empCompOffApprovedOrRejected/" + empId);
+               OnCompOffDetailsSavedEvent onCompOffDetailsSavedEvent = new OnCompOffDetailsSavedEvent(compOff,
+                       urlBuilder1, urlBuilder2);
+               applicationEventPublisher.publishEvent(onCompOffDetailsSavedEvent);	
                 return " you have Check out with latitude: " + latitude + " and longitude: " + longitude + ", which are not within office covered distance";
             }
             timeSheetModel.setEarlyCheckOutStatus(false);
@@ -223,6 +312,35 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
             timeSheetModel.setCheckOutDistance(String.valueOf(distance));
             timeSheetModel.setCheckOutDistanceStatus("checkedOut from office");
             timeSheetRepo.save(timeSheetModel);
+            CompOff  compoff = new CompOff();
+        	
+            if (Auth.getCompoffRole("ROLE_PROJ_EMPLOYEE")) {
+            	String dateString = currentDateTime.getCurrentDate();
+            	SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd"); // Adjust format to match your date string
+            	Date currentDate = dateFormat.parse(dateString);
+                	 
+        	compoff.setCheckout(new Time(new Date().getTime()));
+//        	compoff.setDate(new Date());
+        	
+        	compoff.setStatus("Pending");
+           	Calendar calendar = Calendar.getInstance();
+        	calendar.add(Calendar.MONTH, 2); // Add 2 months to the current date
+        	Timestamp expiryTime = new Timestamp(calendar.getTimeInMillis());
+        	compoff.setExpiryTime(expiryTime);
+            }
+        	UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance()
+     				.scheme(scheme)
+     				.host(ipaddress)
+     				.port(serverPort)
+     				.path(context+"/payroll/timeSheet/empCompOffApprovedOrRejected" + empId);              
+           UriComponentsBuilder urlBuilder2 = ServletUriComponentsBuilder.newInstance()
+     				.scheme(scheme)
+     				.host(ipaddress)
+     				.port(serverPort)
+     				.path(context+"/payroll/timeSheet/empCompOffApprovedOrRejected" + empId);
+           OnCompOffDetailsSavedEvent onCompOffDetailsSavedEvent = new OnCompOffDetailsSavedEvent(compoff,
+                   urlBuilder1, urlBuilder2);
+           applicationEventPublisher.publishEvent(onCompOffDetailsSavedEvent);	
             return "you have Check out with latitude: " + latitude + " and longitude: " + longitude;
         }
         return "You Are Not Check in";

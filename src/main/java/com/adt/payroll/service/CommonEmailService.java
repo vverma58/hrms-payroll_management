@@ -13,6 +13,10 @@ import com.adt.payroll.model.LeaveRequestModel;
 import com.adt.payroll.model.Mail;
 import com.adt.payroll.model.OnLeaveRequestSaveEvent;
 
+import freemarker.core.ParseException;
+import freemarker.template.MalformedTemplateNameException;
+import freemarker.template.TemplateException;
+import freemarker.template.TemplateNotFoundException;
 import freemarker.template.TemplateException;
 
 public interface CommonEmailService {
@@ -63,4 +67,8 @@ public interface CommonEmailService {
 
 
 	void sendLeaveCancelEmail(OnLeaveCancelEvent onLeaveCancelEvent);
+
+	void sendEmailVerification(OnCompOffDetailsSavedEvent onUserRegistrationCompleteEvent)
+			throws TemplateNotFoundException, MalformedTemplateNameException, ParseException, IOException,
+			MessagingException;
 }
