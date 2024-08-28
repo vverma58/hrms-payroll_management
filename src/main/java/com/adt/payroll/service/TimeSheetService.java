@@ -5,8 +5,6 @@ package com.adt.payroll.service;
 import java.io.ByteArrayInputStream;
 import java.text.ParseException;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.io.IOException;
@@ -67,6 +65,11 @@ List<TimesheetDTO> empAttendence(int empId, LocalDate fromDate, LocalDate toDate
 	
 	public String checkInCheckOutForContractBasedEmployee(String hours, String date,double latitude,double longitude,int empId);
     
-	public String earlyCheckOut(double latitude, double longitude, int empId,String reason, String reasonType) throws ParseException; 
+	public String earlyCheckOut(double latitude, double longitude, int empId,String reason, String reasonType) throws ParseException;
+
+	String updateCheckInCheckOutByEmpId(int empId, String checkInTime, String checkOutTime, String date);
+
+	Optional<TimeSheetModel> getTimeSheetByEmployeeIdAndDate(int employeeId, String date);
+
 }
 

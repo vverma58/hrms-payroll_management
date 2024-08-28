@@ -2,13 +2,13 @@ package com.adt.payroll.service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
+import com.adt.payroll.event.*;
+import com.adt.payroll.model.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,16 +22,6 @@ import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
 
 import com.adt.payroll.config.Auth;
 import com.adt.payroll.dto.EmployeeExpenseDTO;
-import com.adt.payroll.event.OnEmployeeExpenseAcceptOrRejectEvent;
-import com.adt.payroll.event.OnEmployeeExpenseDetailsSavedEvent;
-import com.adt.payroll.event.OnLeaveAcceptOrRejectEvent;
-import com.adt.payroll.event.OnPriorTimeAcceptOrRejectEvent;
-import com.adt.payroll.event.OnPriorTimeDetailsSavedEvent;
-import com.adt.payroll.model.LeaveRequestModel;
-import com.adt.payroll.model.Mail;
-import com.adt.payroll.model.OnLeaveRequestSaveEvent;
-import com.adt.payroll.model.Priortime;
-import com.adt.payroll.model.User;
 import com.adt.payroll.repository.UserRepo;
 
 import freemarker.template.Configuration;
@@ -52,7 +42,7 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 
 	@Value("${spring.mail.username}")
 	private String sender;
-	
+
 	@Value("${spring.mail.username}")
 	private String mailFrom;
 
@@ -66,13 +56,13 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 
 	@Autowired
 	private UserRepo userRepo;
-	
+
 	@Autowired
 	private TableDataExtractor dataExtractor;
 
 	@Autowired
 	private Auth auth;
-	
+
 	public CommonEmailServiceImpl(JavaMailSender mailSender, Configuration templateConfiguration) {
 		this.mailSender = mailSender;
 		this.templateConfiguration = templateConfiguration;
@@ -96,7 +86,7 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 			throw new MailSendException(recipientAddress);
 		}
 	}
-	
+
 	/**
 	 * Send email verification to the user and persist the token in the database.
 	 */
@@ -112,7 +102,7 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 			throw new MailSendException(recipientAddress);
 		}
 	}
-	
+
 	@Override
 	public void sendLeaveAcceptAndRejectedEmail(OnLeaveAcceptOrRejectEvent event) {
 		log.info("sendAccountChangeEmailRejected");
@@ -126,39 +116,38 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 
 	@Override
 	public void sendEmailVerification(OnPriorTimeDetailsSavedEvent event, String emailVerificationUrl1,
-			String emailVerificationUrl2, String from) throws IOException, TemplateException, MessagingException {
+									  String emailVerificationUrl2, String from) throws IOException, TemplateException, MessagingException {
 		String sql = "select * from av_schema.priortime_email";
 		List<Map<String, Object>> priortimeData = dataExtractor.extractDataFromTable(sql);
 		for (Map<String, Object> priortime : priortimeData) {
-		String email = String.valueOf(priortime.get("email_id"));
-		String token=auth.tokenGanreate(email);
-		Mail mail = new Mail();
-		mail.setTo(email);
-		mail.setSubject("Email Verification [Team CEP]");
-		mail.setFrom(from);
-		mail.getModel().put("approveLeaveRequestLink1", emailVerificationUrl1+"?Authorization="+token);
-		mail.getModel().put("RejectLeaveRequestLink2", emailVerificationUrl2+"?Authorization="+token);
-		mail.getModel().put("Email", event.getPriorTime().getEmail());
-		mail.getModel().put("CheckInTime", event.getPriorTime().getCheckIn());
-		mail.getModel().put("CheckOutTime", event.getPriorTime().getCheckOut());
-		mail.getModel().put("Date", event.getPriorTime().getDate());
-		mail.getModel().put("Month", event.getPriorTime().getMonth());
-		mail.getModel().put("Year", event.getPriorTime().getYear());
-		mail.getModel().put("EmployeeId", String.valueOf(event.getPriorTime().getEmployeeId()));
+			String email = String.valueOf(priortime.get("email_id"));
+			String token = auth.tokenGanreate(email);
+			Mail mail = new Mail();
+			mail.setTo(email);
+			mail.setSubject("Email Verification [Team CEP]");
+			mail.setFrom(from);
+			mail.getModel().put("approveLeaveRequestLink1", emailVerificationUrl1 + "?Authorization=" + token);
+			mail.getModel().put("RejectLeaveRequestLink2", emailVerificationUrl2 + "?Authorization=" + token);
+			mail.getModel().put("Email", event.getPriorTime().getEmail());
+			mail.getModel().put("CheckInTime", event.getPriorTime().getCheckIn());
+			mail.getModel().put("CheckOutTime", event.getPriorTime().getCheckOut());
+			mail.getModel().put("Date", event.getPriorTime().getDate());
+			mail.getModel().put("Month", event.getPriorTime().getMonth());
+			mail.getModel().put("Year", event.getPriorTime().getYear());
+			mail.getModel().put("EmployeeId", String.valueOf(event.getPriorTime().getEmployeeId()));
 
-		templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
-		Template template = templateConfiguration.getTemplate("priortime_email_verification.ftl");
-		String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
+			templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
+			Template template = templateConfiguration.getTemplate("priortime_email_verification.ftl");
+			String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
 
-		mail.setContent(mailContent);
-		send(mail);
+			mail.setContent(mailContent);
+			send(mail);
 		}
 
 	}
 
 	@Override
-	public void sendAccountChangeEmail(OnPriorTimeAcceptOrRejectEvent event, String action, String actionStatus,
-			String to) throws IOException, TemplateException, MessagingException {
+	public void sendAccountChangeEmail(OnPriorTimeAcceptOrRejectEvent event, String action, String actionStatus, String to) throws IOException, TemplateException, MessagingException {
 		Mail mail = new Mail();
 		mail.setSubject("Timesheet Saved");
 		mail.setTo(to);
@@ -224,7 +213,7 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 
 			log.info("Mail send Successfully");
 		} catch (MessagingException e) {
-			log.error("getting error while send email="+e.getMessage());
+			log.error("getting error while send email=" + e.getMessage());
 
 		}
 	}
@@ -234,7 +223,7 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 	@Override
 	public String sendEmail(OnLeaveRequestSaveEvent event, String Url, String Url1, LeaveRequestModel lr)
 			throws IOException, TemplateException, MessagingException {
-		Mail mail =  new Mail();
+		Mail mail = new Mail();
 		mail.setSubject("Leave Request");
 		//*** From whom the mail should come ***
 		Integer empID = lr.getEmpid();
@@ -246,11 +235,11 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 		List<Map<String, Object>> priortimeData = dataExtractor.extractDataFromTable(sql);
 		for (Map<String, Object> priortime : priortimeData) {
 			String email = String.valueOf(priortime.get("email_id"));
-			String token=auth.tokenGanreate(email);
+			String token = auth.tokenGanreate(email);
 			mail.setTo(email);
-			mail.getModel().put("leaveApprovalLink", Url+"?Authorization="+token);		
-			mail.getModel().put("leaveRejectionLink", Url1+"?Authorization="+token);
-			mail.getModel().put("LeaveId", event.getLeaveRequestModel().getLeaveid().toString() );
+			mail.getModel().put("leaveApprovalLink", Url + "?Authorization=" + token);
+			mail.getModel().put("leaveRejectionLink", Url1 + "?Authorization=" + token);
+			mail.getModel().put("LeaveId", event.getLeaveRequestModel().getLeaveid().toString());
 			mail.getModel().put("EmpId", event.getLeaveRequestModel().getEmpid().toString());
 			mail.getModel().put("Name", event.getLeaveRequestModel().getName());
 			mail.getModel().put("LeaveBalance", event.getLeaveRequestModel().getLeaveBalance().toString());
@@ -263,8 +252,8 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 			String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
 			mail.setContent(mailContent);
 			send(mail);
-			
-		}	
+
+		}
 
 		return "Mail Sent Successfully";
 	}
@@ -281,18 +270,18 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 			e.printStackTrace();
 		}
 	}
-	
-	public void sendEmployeeExpenseVerification(OnEmployeeExpenseDetailsSavedEvent event, String emailVerificationUrl1,String emailVerificationUrl2, String to) throws IOException, TemplateException, MessagingException {
-		EmployeeExpenseDTO employeeExpenseDTO =event.getEmployeeExpenseDTO();
+
+	public void sendEmployeeExpenseVerification(OnEmployeeExpenseDetailsSavedEvent event, String emailVerificationUrl1, String emailVerificationUrl2, String to) throws IOException, TemplateException, MessagingException {
+		EmployeeExpenseDTO employeeExpenseDTO = event.getEmployeeExpenseDTO();
 		Mail mail = new Mail();
 		mail.setSubject("Employee Expense Request...");
 		mail.setTo(to);
 		mail.setFrom(mailFrom);
-		mail.getModel().put("expenseId",employeeExpenseDTO.getExpenseId()+"");
-		mail.getModel().put("EmployeeName",employeeExpenseDTO.getEmpName());
+		mail.getModel().put("expenseId", employeeExpenseDTO.getExpenseId() + "");
+		mail.getModel().put("EmployeeName", employeeExpenseDTO.getEmpName());
 		mail.getModel().put("approveEmployeeExpenseLink1", emailVerificationUrl1);
 		mail.getModel().put("rejectEmployeeExpenseLink1", emailVerificationUrl2);
-		mail.getModel().put("Email",to);
+		mail.getModel().put("Email", to);
 		mail.getModel().put("expenseAmount", employeeExpenseDTO.getExpenseAmount());
 		mail.getModel().put("comments", employeeExpenseDTO.getEmployeeComments());
 		mail.getModel().put("expenseDescription", employeeExpenseDTO.getExpenseDescription());
@@ -300,7 +289,7 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 		mail.getModel().put("paymentDate", employeeExpenseDTO.getPaymentDate());
 		mail.getModel().put("paymentMode", employeeExpenseDTO.getPaymentMode());
 		mail.getModel().put("submitDate", employeeExpenseDTO.getSubmitDate());
-		if( employeeExpenseDTO.getInvoices() != null) {
+		if (employeeExpenseDTO.getInvoices() != null) {
 			mail.setAttachments(employeeExpenseDTO.getInvoices());
 		}
 		templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
@@ -328,7 +317,7 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 		mail.getModel().put("paymentDate", employeeExpenseDTO.getPaymentDate());
 		mail.getModel().put("paymentMode", employeeExpenseDTO.getPaymentMode());
 		mail.getModel().put("submitDate", employeeExpenseDTO.getSubmitDate());
-		if(employeeExpenseDTO.getInvoices() != null) {
+		if (employeeExpenseDTO.getInvoices() != null) {
 			mail.setAttachments(employeeExpenseDTO.getInvoices());
 		}
 		templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
@@ -337,15 +326,15 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 		mail.setContent(mailContent);
 		send(mail);
 	}
-	
-	
+
+
 	public void sendleaveResponseEmail(OnLeaveAcceptOrRejectEvent event,
 			String to) throws IOException, TemplateException, MessagingException {
 		Mail mail = new Mail();
 		mail.setSubject("Leave Request Status");
 		mail.setFrom(mailFrom);
 		mail.setTo(event.getLeaveInfo().get().getEmail());
-		mail.getModel().put("Message",event.getLeaveInfo().get().getMessage());
+		mail.getModel().put("Message", event.getLeaveInfo().get().getMessage());
 		mail.getModel().put("Name", event.getLeaveInfo().get().getName());
 		mail.getModel().put("LeaveBalance", event.getLeaveInfo().get().getLeaveBalance().toString());
 		mail.getModel().put("LeaveType", event.getLeaveInfo().get().getLeaveType());
@@ -357,21 +346,21 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 		String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
 		mail.setContent(mailContent);
 		send(mail);
-			
+
 	}
-	
+
 
 	@Override
 	public void sendAccountChangeEmailApproved(OnEmployeeExpenseAcceptOrRejectEvent event)
 			throws IOException, TemplateException, MessagingException {
 		// TODO Auto-generated method stub
-		
+
 	}
-	
+
 	@Async
 	@Override
-	public void sendEmail( String name) {
-		String massage= Util.MESSAGE.replace("[Name]", name);
+	public void sendEmail(String name) {
+		String massage = Util.MESSAGE.replace("[Name]", name);
 
 		MimeMessage mimeMessage = mailSender.createMimeMessage();
 		MimeMessageHelper mimeMessageHelper;
@@ -395,8 +384,8 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 	}
 	@Async
 	@Override
-	public void sendEmail( String name, String msg) {
-		String massage= Util.ERR_MESSAGE.replace("[Name]", name).replace("[errorMsg]", msg);
+	public void sendEmail(String name, String msg) {
+		String massage = Util.ERR_MESSAGE.replace("[Name]", name).replace("[errorMsg]", msg);
 		MimeMessage mimeMessage = mailSender.createMimeMessage();
 		MimeMessageHelper mimeMessageHelper;
 
@@ -416,7 +405,7 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 			log.info("Error", e.getMessage());
 		}
 	}
-	
+
 	@Async
 	@Override
 	public void sendEmailForTimeSheet(ByteArrayOutputStream baos, String name, String gmail, String date) {
@@ -439,13 +428,13 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 
 			mailSender.send(mimeMessage);
 
-			log.info("Mail send Successfully");
+			log.info("Mail send Successfully to {} ", gmail);
 		} catch (MessagingException e) {
 			log.info("Error");
 
 		}
 	}
-	
+
 	@Async
 	@Override
 	public void sendEmail(Map<ByteArrayOutputStream, String> baos, String name, String gmail, String monthYear) {
@@ -456,15 +445,15 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 		MimeMessageHelper mimeMessageHelper;
 
 		try {
-			
-			
+
+
 			mimeMessageHelper = new MimeMessageHelper(mimeMessage, true);
 			mimeMessageHelper.setFrom(sender);
 			mimeMessageHelper.setTo(gmail);
 			mimeMessageHelper.setText(massage);
 			mimeMessageHelper.setSubject("Salary Slip" + "-" + monthYear);
-			
-			baos.entrySet().forEach(m->{
+
+			baos.entrySet().forEach(m -> {
 				DataSource source = new ByteArrayDataSource(m.getKey().toByteArray(), "application/octet-stream");
 				try {
 					mimeMessageHelper.addAttachment(m.getValue() + ".pdf", source);
@@ -472,7 +461,7 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 					log.error("Error getting while send mail", e.getMessage());
 					e.printStackTrace();
 				}
-			} );
+			});
 
 			mailSender.send(mimeMessage);
 
@@ -482,4 +471,82 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 
 		}
 	}
+
+	@Override
+	public void sendEmail(OnLeaveRequestCancelEvent event) throws MessagingException, TemplateException, IOException {
+		LeaveRequestModel leaveRequestModel = event.getLeaveRequestModel();
+		String emailCancelUrl = event.getRedirectUrl().toUriString();
+		sendEmail(event, emailCancelUrl, leaveRequestModel);
+	}
+	private String sendEmail(OnLeaveRequestCancelEvent event, String emailCancelUrl, LeaveRequestModel lrm) throws MessagingException, IOException, TemplateException {
+		Mail mail = new Mail();
+		mail.setSubject("Leave Cancel Request");
+		Integer empID = lrm.getEmpid();
+		Optional<User> user = userRepo.findById(empID);
+		if (!user.isPresent()) {
+			throw new RuntimeException("User not found with ID: " + empID);
+		}
+		// Get the email of the user (sender)
+		String userEmail = user.get().getEmail();
+		mail.setFrom(userEmail);
+		String sql = "select * from av_schema.priortime_email";
+		List<Map<String, Object>> priortimeData = dataExtractor.extractDataFromTable(sql);
+		for (Map<String, Object> priortime : priortimeData) {
+			String recipientEmail = String.valueOf(priortime.get("email_id"));
+			String recipientName = String.valueOf(priortime.get("name")); // Adjust according to your data structure
+			String token = auth.tokenGanreate(recipientEmail);
+			mail.setTo(recipientEmail);
+			mail.getModel().put("leaveCancelLink", emailCancelUrl + "?Authorization=" + token);
+			mail.getModel().put("Name", user.get().getFirstName()); // Set recipient's name here
+			mail.getModel().put("LeaveType", event.getLeaveRequestModel().getLeaveType());
+			mail.getModel().put("LeaveDates", event.getLeaveRequestModel().getLeavedate().toString());
+			mail.getModel().put("CancelReason", event.getLeaveRequestModel().getCancelReason());
+			templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
+			Template template = templateConfiguration.getTemplate("leave-cancellation.ftl");
+			String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
+			mail.setContent(mailContent);
+			send(mail);
+		}
+		return "Mail for Leave Cancellation sent successfully";
+	}
+
+	@Override
+	public void sendLeaveCancelEmail(OnLeaveCancelEvent onLeaveCancelEvent) {
+		log.info("sendAccountChangeEmailCancelled");
+		String recipientAddress = null;
+		try {
+			sendleaveCancelResponseEmail(onLeaveCancelEvent, recipientAddress);
+		} catch (IOException | TemplateException | MessagingException e) {
+			throw new MailSendException(recipientAddress);
+		}
+	}
+	private void sendleaveCancelResponseEmail(OnLeaveCancelEvent onLeaveCancelEvent, String to) throws MessagingException, IOException, TemplateException {
+		Mail mail = new Mail();
+		LeaveRequestModel leaveInfo = onLeaveCancelEvent.getLeaveInfo().orElseThrow(() -> new IllegalArgumentException("Leave info is missing"));
+		mail.setSubject("Leave Cancel Request Status");
+		mail.setFrom(mailFrom);
+		mail.setTo(leaveInfo.getEmail());
+		mail.getModel().put("Message", leaveInfo.getMessage() != null ? leaveInfo.getMessage() : "No message provided");
+		mail.getModel().put("Name", leaveInfo.getName() != null ? leaveInfo.getName() : "N/A");
+		mail.getModel().put("LeaveBalance", leaveInfo.getLeaveBalance() != null ? leaveInfo.getLeaveBalance().toString() : "N/A");
+		mail.getModel().put("LeaveType", leaveInfo.getLeaveType() != null ? leaveInfo.getLeaveType() : "N/A");
+		mail.getModel().put("CancelReason", leaveInfo.getCancelReason() != null ? leaveInfo.getCancelReason() : "N/A");
+		mail.getModel().put("LeaveDates", leaveInfo.getLeavedate() != null ? String.join(", ", leaveInfo.getLeavedate()) : "N/A");
+		mail.getModel().put("Status", leaveInfo.getStatus() != null ? leaveInfo.getStatus() : "N/A");
+		try {
+			templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
+			Template template = templateConfiguration.getTemplate("leave_cancellation_status.ftl");
+			// Process template to get email content
+			String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
+			mail.setContent(mailContent);
+			send(mail);
+		} catch (TemplateException | IOException e) {
+			throw new MessagingException("Failed to process email template", e);
+		} catch (Exception e) {
+			throw new MessagingException("Failed to send email", e);
+		}
+	}
 }
+
+
+

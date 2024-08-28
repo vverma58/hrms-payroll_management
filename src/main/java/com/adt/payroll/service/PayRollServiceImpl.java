@@ -301,7 +301,7 @@ public class PayRollServiceImpl implements PayRollService {
 
 	// Excel Pay Slip
 
-	public String generatePaySlip(MultipartFile file, String email,boolean isDBSelected) throws IOException, ParseException {
+	public String generatePaySlip(MultipartFile file, String email) throws IOException, ParseException {
 		DateTimeZone istTimeZone = DateTimeZone.forID("Asia/Kolkata");
 		DateTime currentDateTime = new DateTime(istTimeZone);
 
@@ -487,8 +487,7 @@ public class PayRollServiceImpl implements PayRollService {
 						gmail = email;
 					mailService.sendEmail(baos, name, gmail,
 							paySlipDetails.get(Util.MONTH) + " " + paySlipDetails.get(Util.YEAR));
-
-					if (isDBSelected) {
+					if(email ==null) {
 						log.info("save data in monthlySalaryDetails Table");
 						monthlySalaryDetails.setEmpId(Integer.parseInt(empId));
 						monthlySalaryDetails.setMedicalInsurance(medical);

@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import com.adt.payroll.event.OnLeaveCancelEvent;
+import com.adt.payroll.model.*;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
@@ -24,12 +26,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import com.adt.payroll.config.Auth;
 import com.adt.payroll.event.OnLeaveAcceptOrRejectEvent;
-import com.adt.payroll.model.LeaveBalance;
-import com.adt.payroll.model.LeaveModel;
-import com.adt.payroll.model.LeaveRequestModel;
-import com.adt.payroll.model.Mail;
-import com.adt.payroll.model.OnLeaveRequestSaveEvent;
-import com.adt.payroll.model.User;
 import com.adt.payroll.repository.LeaveBalanceRepository;
 import com.adt.payroll.repository.LeaveRepository;
 import com.adt.payroll.repository.LeaveRequestRepo;
@@ -40,8 +36,6 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Service;
 
 @Service
 public class LeaveRequestServiceImpl implements LeaveRequestService {
@@ -61,31 +55,36 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 
 	@Value("${spring.mail.username}")
 	private String sender;
-	
+
 
     @Value("${-Dmy.port}")
 	private String serverPort;
 
 	@Value("${-Dmy.property}")
 	private String ipaddress;
-	
+
 	@Value("${-UI.scheme}")
 	private String scheme;
 
 	@Value("${-UI.context}")
 	private String context;
-	
+
 	@Autowired
 	private Auth auth;
-       
+
 	@Autowired
 	private ApplicationEventPublisher applicationEventPublisher;
-	
+
 	@Autowired
 	private LeaveBalanceRepository leaveBalanceRepo;
-	
+
 	@Autowired
 	private TableDataExtractor dataExtractor;
+	@Autowired
+	private CommonEmailService mailService;
+
+	@Autowired
+	private MailService mailService1;
 
 	public LeaveRequestServiceImpl() {
 
@@ -118,13 +117,14 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 		 List<Map<String, Object>> tableData = dataExtractor.extractDataFromTable(sql);
 		 Map<String, Object> firstMap = tableData.get(0);
 		 lr.setLeaveBalance(Integer.valueOf(String.valueOf(firstMap.get("leave_balance"))));
-			
+
 		if (counter == 0) {
 			lr.setStatus("Pending");
 			long millisecondsInFiveDays = TimeUnit.DAYS.toMillis(5);
 			long currentTime=System.currentTimeMillis();
-			leaveRequestRepo.save(lr);
 			lr.setExpiryTime(currentTime+millisecondsInFiveDays);
+			leaveRequestRepo.save(lr);
+
 			int id = lr.getEmpid();
 			int leaveId = lr.getLeaveid();
 			 UriComponentsBuilder urlBuilder = ServletUriComponentsBuilder.newInstance()
@@ -132,14 +132,14 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 						.host(ipaddress)
 						.port(serverPort)
 						.path(context+"/payroll/leave/leave/Accepted/"+ id + "/" + leaveId + "/" + lr.getLeavedate().size()+"/"+lr.getLeaveType()+"/"+lr.getLeaveReason());
-			            
- 
+
+
 			 UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance()
 						.scheme(scheme)
 						.host(ipaddress)
 						.port(serverPort)
 						.path(context+"/payroll/leave/leave/Rejected/"+ id + "/" + leaveId+"/"+lr.getLeaveType()+"/"+lr.getLeaveReason());
-			           
+
 				OnLeaveRequestSaveEvent onLeaveRequestSaveEvent = new OnLeaveRequestSaveEvent(urlBuilder, urlBuilder1, lr);
 			applicationEventPublisher.publishEvent(onLeaveRequestSaveEvent);
 
@@ -173,7 +173,7 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 					leaveRequestRepo.save(leave);
 				}
 			}
-			
+
 		}
 		if (!leaveResponse.isEmpty()) {
 			return leaveResponse;
@@ -222,7 +222,7 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 			applicationEventPublisher.publishEvent(onLeaveAcceptOrRejectEvent);
 			leaveR.setStatus("Accepted");
 			leaveBalanceRepo.save(leaveBalance);
-			leaveR.setUpdatedBy(auth.getEmail());	
+			leaveR.setUpdatedBy(auth.getEmail());
 			leaveRequestRepo.save(leaveR);
 			return leaveR.getLeaveid() + " leave Request Accepted";
 		} else {
@@ -298,12 +298,12 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 		LOGGER.info("Mail send Successfully");
 
 	}
-	
+
 	@Override
 	public List<LeaveRequestModel> getAllEmployeeLeaveDetails() {
 		return leaveRequestRepo.findAll();
 	}
-	
+
      public  String reSendLeaveRequest(int leaveId) {
     	 Optional<LeaveRequestModel>  leaveRequest= leaveRequestRepo.findById(leaveId);
     	if(leaveRequest.isPresent()) {
@@ -320,28 +320,114 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 						.scheme(scheme)
 						.host(ipaddress)
 						.port(serverPort)
-						.path(context+"/payroll/leave/leave/Accepted/"+ id + "/" + leaveId + "/" + leaveRequest.get().getLeavedate().size()+"/"+leaveRequest.get().getLeaveType()+"/"+leaveRequest.get().getLeaveReason());			            
+						.path(context+"/payroll/leave/leave/Accepted/"+ id + "/" + leaveId + "/" + leaveRequest.get().getLeavedate().size()+"/"+leaveRequest.get().getLeaveType()+"/"+leaveRequest.get().getLeaveReason());
 
 			 UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance()
 						.scheme(scheme)
 						.host(ipaddress)
 						.port(serverPort)
 						.path(context+"/payroll/leave/leave/Rejected/"+ id + "/" + leaveId+"/"+leaveRequest.get().getLeaveType()+"/"+leaveRequest.get().getLeaveReason());
-			           
+
 				OnLeaveRequestSaveEvent onLeaveRequestSaveEvent = new OnLeaveRequestSaveEvent(urlBuilder, urlBuilder1, leaveReq);
 			applicationEventPublisher.publishEvent(onLeaveRequestSaveEvent);
 			leaveRequestRepo.save(leaveReq);
 			return "reSend email successfully";
     	}
-    	return "this records  not persent "; 
-    	 
+    	return "this records  not persent ";
+
      }
 		@Override
 		public LeaveRequestModel getLeaveRequestDetailsByEmpIdAndLeaveId(int empId, int leaveId) {
 			return (LeaveRequestModel) leaveRequestRepo.findByEmpidAndLeaveid(empId, leaveId)
 					.orElseThrow(() -> new IllegalArgumentException("Leave request not found for empId: " + empId + " and leaveId: " + leaveId));
 		}
+
+
+	@Override
+	public String cancelApprovedLeaveByLeaveId(Integer leaveId, String cancelReason, Integer empId) {
+		LOGGER.info("Payroll service: LeaveRequestServiceImpl: cancelApprovedLeaveByLeaveId Info level log msg");
+
+		// Fetch leave request by leaveId
+		LeaveRequestModel lr = leaveRequestRepo.findById(leaveId)
+				.orElseThrow(() -> new RuntimeException("Leave Request not found with ID: " + leaveId));
+		// Check if the leave status is "Approved" or "Pending"
+		if ("Accepted".equals(lr.getStatus()) || "Pending".equals(lr.getStatus())) {
+			lr.setCancelReason(cancelReason);
+			leaveRequestRepo.save(lr);
+
+			// Build the cancellation URL
+			UriComponentsBuilder urlBuilderCancelled = ServletUriComponentsBuilder.newInstance()
+					.scheme(scheme)
+					.host(ipaddress)
+					.port(serverPort)
+					.path(context + "/payroll/leave/leave/cancel/" + lr.getEmpid() + "/" + leaveId + "/" + lr.getLeaveType() + "/" + lr.getCancelReason());
+
+			// Publish the cancellation event
+			OnLeaveRequestCancelEvent onLeaveRequestCancelEvent = new OnLeaveRequestCancelEvent(urlBuilderCancelled, lr);
+			applicationEventPublisher.publishEvent(onLeaveRequestCancelEvent);
+
+
+			return "Leave  Cancellation request with ID " + leaveId + " has been Submitted Successfully.";
+		} else {
+			return "Cannot request cancellation with ID " + leaveId + " because its status is not Approved or Pending.";
+		}
 	}
+	@Override
+	public String cancelLeaveRequest(Integer empid, Integer leaveId, String leaveType, String cancelReason) {
+		// Fetch the leave request model
+		LeaveRequestModel leaveR = leaveRequestRepo.search(empid, leaveId);
+		User user = userRepo.findById(empid).orElseThrow(() -> new EntityNotFoundException("employee not found :" + empid));
+		String email = user.getEmail();
+		LeaveBalance leaveBalance = leaveBalanceRepo.findByEmpId(empid);
+
+		if (leaveR != null && ("Pending".equalsIgnoreCase(leaveR.getStatus()) ||
+				"Accepted".equalsIgnoreCase(leaveR.getStatus())
+				)) {
+
+			// Fetch leave dates before deletion
+			// SQL query to get leave dates for the given leave_id
+			String sql = "SELECT leavedate FROM payroll_schema.leave_dates WHERE leave_id = ?";
+			List<Map<String, Object>> leaveData = dataExtractor.extractDataFromTable1(sql, leaveId);
+			List<String> leaveDatelist = new ArrayList<>();
+			for (Map<String, Object> leaveMap : leaveData) {
+				leaveDatelist.add((String) leaveMap.get("leavedate"));
+			}
+			if ("Accepted".equalsIgnoreCase(leaveR.getStatus())) {
+				int daysOfLeave = leaveDatelist.size();
+				int currentLeaveBalance = leaveBalance.getLeaveBalance();
+				int newLeaveBalance = currentLeaveBalance + daysOfLeave;
+				leaveBalance.setLeaveBalance(newLeaveBalance);
+				leaveBalanceRepo.save(leaveBalance);
+
+
+				String sql1 = "DELETE FROM payroll_schema.leave_dates WHERE leave_id = ?";
+				dataExtractor.insertDataFromTable1(sql1, leaveId);
+				leaveR.setCancelReason(cancelReason);
+				leaveR.setEmail(email);
+				leaveR.setMessage("Your Leave Cancellation Request has been approved. Find below leave request approved details");
+				leaveR.setStatus("Cancelled"); // Update status to 'Cancelled'
+				leaveR.setName(leaveBalance.getName());
+				leaveR.setLeaveBalance(newLeaveBalance); // Update with new leave balance
+				leaveR.setLeavedate(leaveDatelist); // Include leave dates in the model if needed for email
+				leaveRequestRepo.save(leaveR);
+			} else {
+				// Handle case where the leave request is not "Accepted"
+				throw new IllegalStateException("The leave request status is not 'Accepted' and cannot be cancelled.");
+			}
+
+			// Publish leave cancellation event
+			OnLeaveCancelEvent onLeaveCancelEvent = new OnLeaveCancelEvent(Optional.of(leaveR));
+			applicationEventPublisher.publishEvent(onLeaveCancelEvent);
+
+			return leaveR.getLeaveid() + " leave Request Cancelled";
+		} else {
+			return empid + " leave request status already updated";
+		}
+	}
+
+}
+
+
 
 
 
