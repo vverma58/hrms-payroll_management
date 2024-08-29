@@ -45,6 +45,7 @@ public class Auth {
 
 	public boolean isUpdated;
 	public static String updateByEmail;
+	public static String roles;
 
 	public boolean allow(String apiName, Map<String, String> resourceAttributes) {
 		apiConstant=apiName;
@@ -110,6 +111,7 @@ public class Auth {
 
 	private List<GrantedAuthority> getAuthorities(Claims claims) {
 		String employeeId = String.valueOf(claims.get("id"));
+		roles=String.valueOf(claims.get("authorities"));
 		empId = employeeId;
 		if(isUpdated)
 	    updateByEmail = String.valueOf(claims.get("sub"));
@@ -190,5 +192,12 @@ public class Auth {
 		}
 
 		return null;
+	}
+	
+	public static boolean getCompoffRole(String roleName) {
+		if(roles.contains(roleName)) {
+			return true;
+		}
+		return false;
 	}
 }
