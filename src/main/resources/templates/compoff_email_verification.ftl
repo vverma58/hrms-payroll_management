@@ -59,10 +59,17 @@
                                                                 <h1 class="tw-h1"
                                                                     style="font-size: 24px; font-weight: bold; mso-line-height-rule: exactly; line-height: 32px; margin: 0 0 20px; color: #474747;">
                                                                     Dear HR,</h1>
+                                                                    <p class=""
+                                                                      style="margin: 20px 0; font-size: 16px; mso-line-height-rule: exactly; line-height: 24px;">
+                                                                      <span style="font-weight: 400;">
+                                                                      This email is to request a compensatory off for the date mentioned below. 
+                                                                      Please process this CompOff request accordingly:
+                                                                      </span>
+                                                                   </p>
                                                                 <p class=""
                                                                     style="margin: 20px 0; font-size: 16px; mso-line-height-rule: exactly; line-height: 24px;">
                                                                     <span style="font-weight: 400;">
-                                                                   
+                                                                        
                                                                     <label for="CheckIn">CheckIn</label>:-<a  id = "CheckIn">${CheckInTime}</a><br>
                                                                     <label for="CheckOut">CheckOut</label>:-<a id = "CheckOut">${CheckOutTime}</a><br>
                                                                     <label for="Date">Date</label>:-<a id = "Date" >${Date}</a><br>
