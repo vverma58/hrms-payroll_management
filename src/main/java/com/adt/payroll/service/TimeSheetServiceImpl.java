@@ -291,16 +291,23 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
             	 timeSheetRepo.save(timeSheetModel);
                 }
                 }
+                String date = compOff.getDate().toString();
+                String[] dateTimeParts = date.split(" ");
+                String compoffdate1 = dateTimeParts[0];
+               
+                
                 UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance()
          				.scheme(scheme)
          				.host(ipaddress)
          				.port(serverPort)
-         				.path(context+"/payroll/timeSheet/empCompOffApprovedOrRejected" + empId);              
+         				.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/empId=" + empId
+								+ "&compOffDate=" + compoffdate1 + "&compOffStatus=Approved");              
                UriComponentsBuilder urlBuilder2 = ServletUriComponentsBuilder.newInstance()
          				.scheme(scheme)
          				.host(ipaddress)
          				.port(serverPort)
-         				.path(context+"/payroll/timeSheet/empCompOffApprovedOrRejected/" + empId);
+         				.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/empId=" + empId
+								+ "&compOffDate=" + compoffdate1 + "&compOffStatus=Rejected");
                OnCompOffDetailsSavedEvent onCompOffDetailsSavedEvent = new OnCompOffDetailsSavedEvent(compOff,
                        urlBuilder1, urlBuilder2);
                applicationEventPublisher.publishEvent(onCompOffDetailsSavedEvent);	
@@ -328,16 +335,22 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
         	Timestamp expiryTime = new Timestamp(calendar.getTimeInMillis());
         	compoff.setExpiryTime(expiryTime);
             }
+            String date = compOff.getDate().toString();
+            String[] dateTimeParts = date.split(" ");
+            String compoffdate2 = dateTimeParts[0];
         	UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance()
      				.scheme(scheme)
      				.host(ipaddress)
      				.port(serverPort)
-     				.path(context+"/payroll/timeSheet/empCompOffApprovedOrRejected" + empId);              
+     				.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/empId=" + empId + "&compOffDate="
+							+ compoffdate2 + "&compOffStatus=Approved");              
            UriComponentsBuilder urlBuilder2 = ServletUriComponentsBuilder.newInstance()
      				.scheme(scheme)
      				.host(ipaddress)
      				.port(serverPort)
-     				.path(context+"/payroll/timeSheet/empCompOffApprovedOrRejected" + empId);
+     				.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/empId=" + empId + "&compOffDate="
+							+ compoffdate2 + "&compOffStatus=Rejected");
+
            OnCompOffDetailsSavedEvent onCompOffDetailsSavedEvent = new OnCompOffDetailsSavedEvent(compoff,
                    urlBuilder1, urlBuilder2);
            applicationEventPublisher.publishEvent(onCompOffDetailsSavedEvent);	

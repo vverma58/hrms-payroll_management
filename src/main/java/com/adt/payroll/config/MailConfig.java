@@ -24,6 +24,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.ui.freemarker.FreeMarkerConfigurationFactoryBean;
+import org.springframework.web.client.RestTemplate;
 
 @Configuration
 @PropertySource("classpath:mail.properties")
@@ -84,5 +85,10 @@ public class MailConfig {
         mailSender.setJavaMailProperties(javaMailProperties);
         return mailSender;
     }
+    
+    @Bean
+	public RestTemplate restTemplate() {
+		return new RestTemplate();
+	}
 
 }

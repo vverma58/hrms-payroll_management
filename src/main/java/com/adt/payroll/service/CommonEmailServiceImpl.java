@@ -13,12 +13,14 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
+import org.springframework.web.client.RestTemplate;
 
 import com.adt.payroll.config.Auth;
 import com.adt.payroll.dto.EmployeeExpenseDTO;
@@ -52,6 +54,12 @@ import jakarta.mail.util.ByteArrayDataSource;
 public class CommonEmailServiceImpl implements CommonEmailService {
 
 	private static final Logger log = LogManager.getLogger(PayRollServiceImpl.class);
+	
+	@Autowired
+	private RestTemplate restTemplate;
+
+	@Value("${email.service.url}")
+	private String emailServiceUrl;
 
 	@Value("${app.velocity.templates.location}")
 	private String basePackagePath;
@@ -564,10 +572,10 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 	}
 	
 	@Override
-	public void sendEmailVerification(OnCompOffDetailsSavedEvent onUserRegistrationCompleteEvent) throws TemplateNotFoundException, MalformedTemplateNameException, ParseException, IOException, MessagingException {
+	public void sendEmailVerification(OnCompOffDetailsSavedEvent onCompOffDetailsSavedEvent) throws TemplateNotFoundException, MalformedTemplateNameException, ParseException, IOException, MessagingException {
 		Mail mail =  new Mail();
 		mail.setSubject("Compensation off Request");
-		Optional<User> user = userRepo.findById(onUserRegistrationCompleteEvent.getCompOff().getEmpId());
+		Optional<User> user = userRepo.findById(onCompOffDetailsSavedEvent.getCompOff().getEmpId());
 		String userEmail = user.get().getEmail();
 		mail.setFrom(userEmail);
 		String sql = "select * from av_schema.priortime_email";
@@ -578,16 +586,16 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 			String token=auth.tokenGanreate(email);
 	//	mail.setTo("sunalisingh.adt@gmail.com");
 			mail.setTo(email);	
-		mail.getModel().put("compOffApprovalLink", onUserRegistrationCompleteEvent.getRedirectUrl1().toString()+"?Authorization="+token);		
-		mail.getModel().put("compOffRejectionLink", onUserRegistrationCompleteEvent.getRedirectUrl2().toString()+"?Authorization="+token);
-		mail.getModel().put("CheckInTime", onUserRegistrationCompleteEvent.getCompOff().getCheckin().toString());
-		mail.getModel().put("CheckOutTime", onUserRegistrationCompleteEvent.getCompOff().getCheckout().toString());
+		mail.getModel().put("compOffApprovalLink", onCompOffDetailsSavedEvent.getRedirectUrl1().toUriString()+"?Authorization="+token);		
+		mail.getModel().put("compOffRejectionLink", onCompOffDetailsSavedEvent.getRedirectUrl2().toUriString()+"?Authorization="+token);
+		mail.getModel().put("CheckInTime", onCompOffDetailsSavedEvent.getCompOff().getCheckin().toString());
+		mail.getModel().put("CheckOutTime", onCompOffDetailsSavedEvent.getCompOff().getCheckout().toString());
 	//	mail.getModel().put("workingHours", onUserRegistrationCompleteEvent.getCompOff().getw);
-		mail.getModel().put("EmpId", String.valueOf(onUserRegistrationCompleteEvent.getCompOff().getEmpId()));
+		mail.getModel().put("EmpId", String.valueOf(onCompOffDetailsSavedEvent.getCompOff().getEmpId()));
 
 		
 		mail.getModel().put("Name", user.get().getFirstName().concat(user.get().getLastName()));
-		mail.getModel().put("Date", onUserRegistrationCompleteEvent.getCompOff().getDate().toString());
+		mail.getModel().put("Date", onCompOffDetailsSavedEvent.getCompOff().getDate().toString());
 		templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
 		Template template = templateConfiguration.getTemplate("compoff_email_verification.ftl");
 		String mailContent = null;
@@ -598,7 +606,12 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 			e.printStackTrace();
 		}
 		mail.setContent(mailContent);
-		send(mail);
+		
+		// Send email
+					String url = emailServiceUrl + "/emails/send";
+					HttpEntity<Mail> request = new HttpEntity<>(mail);
+					restTemplate.postForEntity(url, request, String.class);
+		//send(mail);
 		}
 		
 	}
