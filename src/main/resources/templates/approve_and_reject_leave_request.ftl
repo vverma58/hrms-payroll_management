@@ -111,9 +111,6 @@
             </tr>
         </table>
 
-        <p>
-            Available Leave: <span id="LeaveBalance">${LeaveBalance} </span>
-        </p>
         <div class="support">
             <p>
                 Contact our support team if you have any questions or concerns.

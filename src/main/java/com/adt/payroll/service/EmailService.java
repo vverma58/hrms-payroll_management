@@ -25,14 +25,10 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 @Service
 public class EmailService {
 
-	//	@Autowired
-	//	private EmployeeRepo employeeRepo;
-
 	@Autowired
 	private JavaMailSender javaMailSender;
 
 	private final Configuration templateConfiguration;
-
 
 	@Value("${app.velocity.templates.location}")
 	private String basePackagePath;
@@ -55,7 +51,6 @@ public class EmailService {
 		mail.getModel().put("LeaveId", event.getLeaveRequestModel().getLeaveid().toString() );
 		mail.getModel().put("EmpId", event.getLeaveRequestModel().getEmpid().toString());
 		mail.getModel().put("Name", event.getLeaveRequestModel().getName());
-		mail.getModel().put("LeaveBalance", event.getLeaveRequestModel().getLeaveBalance().toString());
 		mail.getModel().put("LeaveType", event.getLeaveRequestModel().getLeaveType());
 		mail.getModel().put("Reason", event.getLeaveRequestModel().getLeaveReason());
 		mail.getModel().put("LeaveDates", event.getLeaveRequestModel().getLeavedate().toString());
