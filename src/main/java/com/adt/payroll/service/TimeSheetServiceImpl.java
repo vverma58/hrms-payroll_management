@@ -1022,6 +1022,11 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
     }
 
     @Override
+    public List<Priortime> getPriorTimeDetailsByNameAndDate(String fromDate, String toDate) {
+        return List.of();
+    }
+
+    @Override
     public String updateCheckInCheckOutByEmpId(int empId, String checkInTime, String checkOutTime, String date) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
         LocalDate localDate;
