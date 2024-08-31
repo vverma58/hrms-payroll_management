@@ -86,9 +86,9 @@ public class MailConfig {
         return mailSender;
     }
     
-    @Bean
-	public RestTemplate restTemplate() {
-		return new RestTemplate();
-	}
+//    @Bean
+//	public RestTemplate restTemplate() {
+//		return new RestTemplate();
+//	}
 
 }

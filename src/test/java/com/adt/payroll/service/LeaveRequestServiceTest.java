@@ -49,7 +49,6 @@ public class LeaveRequestServiceTest {
 		LeaveRequestModel requestModel = new LeaveRequestModel();
 		
 		requestModel.setEmpid(118);
-		requestModel.setLeaveBalance(10);
 		requestModel.setLeaveid(121);
 		requestModel.setStatus("Pending");
 		requestModel.setLeaveType("");

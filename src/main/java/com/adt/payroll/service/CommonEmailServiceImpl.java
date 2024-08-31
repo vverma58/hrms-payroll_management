@@ -2,18 +2,19 @@ package com.adt.payroll.service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
+import com.adt.payroll.event.*;
+import com.adt.payroll.model.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
+import org.springframework.http.*;
 import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -49,17 +50,16 @@ import jakarta.activation.DataSource;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.util.ByteArrayDataSource;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
 
 @Service
 public class CommonEmailServiceImpl implements CommonEmailService {
 
 	private static final Logger log = LogManager.getLogger(PayRollServiceImpl.class);
-	
+
 	@Autowired
 	private RestTemplate restTemplate;
-
-	@Value("${email.service.url}")
-	private String emailServiceUrl;
 
 	@Value("${app.velocity.templates.location}")
 	private String basePackagePath;
@@ -72,7 +72,7 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 
 	@Value("${spring.mail.cc}")
 	private String ccEmail;
-
+	private final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(this.getClass());
 	private Configuration templateConfiguration;
 
 	@Autowired
@@ -83,6 +83,9 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 
 	@Autowired
 	private TableDataExtractor dataExtractor;
+
+	@Value("${utility.service.url}")
+	private String utilityServiceUrl;
 
 	@Autowired
 	private Auth auth;
@@ -265,20 +268,31 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 			mail.getModel().put("leaveRejectionLink", Url1 + "?Authorization=" + token);
 			mail.getModel().put("LeaveId", event.getLeaveRequestModel().getLeaveid().toString());
 			mail.getModel().put("EmpId", event.getLeaveRequestModel().getEmpid().toString());
-			mail.getModel().put("Name", event.getLeaveRequestModel().getName());
-			mail.getModel().put("LeaveBalance", event.getLeaveRequestModel().getLeaveBalance().toString());
+			mail.getModel().put("Name", user.get().getFirstName() + " " + user.get().getLastName());
 			mail.getModel().put("LeaveType", event.getLeaveRequestModel().getLeaveType());
 			mail.getModel().put("Reason", event.getLeaveRequestModel().getLeaveReason());
 			mail.getModel().put("LeaveDates", event.getLeaveRequestModel().getLeavedate().toString());
 			mail.getModel().put("Status", event.getLeaveRequestModel().getStatus());
-			templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
-			Template template = templateConfiguration.getTemplate("leave_status_change.ftl");
-			String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
-			mail.setContent(mailContent);
-			send(mail);
+			try {
+				templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
+				Template template = templateConfiguration.getTemplate("leave_status_change.ftl");
+				String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
+				mail.setContent(mailContent);
+				String url = utilityServiceUrl + "/emails/send";
+				HttpHeaders headers = new HttpHeaders();
+				headers.setContentType(MediaType.APPLICATION_JSON); // Correctly set Content-Type
+				HttpEntity<Mail> request = new HttpEntity<>(mail, headers);
+				restTemplate.postForEntity(url, request, String.class);
+				ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+			} catch (TemplateException | IOException e) {
+				log.error("Failed to process email template", e);
+				throw new MessagingException("Failed to process email template", e);
+			} catch (Exception e) {
+				log.error("Failed to send email", e);
+				throw new MessagingException("Failed to send email", e);
+			}
 
 		}
-
 		return "Mail Sent Successfully";
 	}
 
@@ -355,22 +369,35 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 	public void sendleaveResponseEmail(OnLeaveAcceptOrRejectEvent event,
 			String to) throws IOException, TemplateException, MessagingException {
 		Mail mail = new Mail();
+		Optional<User> user = userRepo.findById(event.getLeaveInfo().get().getEmpid());
+
 		mail.setSubject("Leave Request Status");
 		mail.setFrom(mailFrom);
 		mail.setTo(event.getLeaveInfo().get().getEmail());
 		mail.getModel().put("Message", event.getLeaveInfo().get().getMessage());
-		mail.getModel().put("Name", event.getLeaveInfo().get().getName());
-		mail.getModel().put("LeaveBalance", event.getLeaveInfo().get().getLeaveBalance().toString());
+		mail.getModel().put("Name", user.get().getFirstName()+" "+user.get().getLastName());
 		mail.getModel().put("LeaveType", event.getLeaveInfo().get().getLeaveType());
 		mail.getModel().put("Reason", event.getLeaveInfo().get().getLeaveReason());
 		mail.getModel().put("LeaveDates", event.getLeaveInfo().get().getLeavedate().toString());
 		mail.getModel().put("Status", event.getLeaveInfo().get().getStatus());
-		templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
-		Template template = templateConfiguration.getTemplate("approve_and_reject_leave_request.ftl");
-		String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
-		mail.setContent(mailContent);
-		send(mail);
-
+		try {
+			templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
+			Template template = templateConfiguration.getTemplate("approve_and_reject_leave_request.ftl");
+			String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
+			mail.setContent(mailContent);
+			String url = utilityServiceUrl + "/emails/send";
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON); // Correctly set Content-Type
+			HttpEntity<Mail> request = new HttpEntity<>(mail, headers);
+			restTemplate.postForEntity(url, request, String.class);
+			ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
+		} catch (TemplateException | IOException e) {
+			log.error("Failed to process email template", e);
+			throw new MessagingException("Failed to process email template", e);
+		} catch (Exception e) {
+			log.error("Failed to send email", e);
+			throw new MessagingException("Failed to send email", e);
+		}
 	}
 
 
@@ -458,7 +485,6 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 
 		}
 	}
-
 	@Async
 	@Override
 	public void sendEmail(Map<ByteArrayOutputStream, String> baos, String name, String gmail, String monthYear) {
@@ -499,60 +525,98 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 	@Override
 	public void sendEmail(OnLeaveRequestCancelEvent event) throws MessagingException, TemplateException, IOException {
 		LeaveRequestModel leaveRequestModel = event.getLeaveRequestModel();
+
+		// Ensure that `leavedate` is initialized if using lazy loading
+		initializeLeaveRequestModel(leaveRequestModel);
+
 		String emailCancelUrl = event.getRedirectUrl().toUriString();
 		sendEmail(event, emailCancelUrl, leaveRequestModel);
 	}
+
+	private void initializeLeaveRequestModel(LeaveRequestModel leaveRequestModel) {
+		// This method ensures that the collection is initialized
+		if (leaveRequestModel != null) {
+			// Access the collection to initialize it
+			leaveRequestModel.getLeavedate().size();
+		}
+	}
+
 	private String sendEmail(OnLeaveRequestCancelEvent event, String emailCancelUrl, LeaveRequestModel lrm) throws MessagingException, IOException, TemplateException {
 		Mail mail = new Mail();
 		mail.setSubject("Leave Cancel Request");
+
 		Integer empID = lrm.getEmpid();
 		Optional<User> user = userRepo.findById(empID);
 		if (!user.isPresent()) {
 			throw new RuntimeException("User not found with ID: " + empID);
 		}
+
 		// Get the email of the user (sender)
 		String userEmail = user.get().getEmail();
 		mail.setFrom(userEmail);
+
 		String sql = "select * from av_schema.priortime_email";
 		List<Map<String, Object>> priortimeData = dataExtractor.extractDataFromTable(sql);
+
 		for (Map<String, Object> priortime : priortimeData) {
 			String recipientEmail = String.valueOf(priortime.get("email_id"));
 			String recipientName = String.valueOf(priortime.get("name")); // Adjust according to your data structure
 			String token = auth.tokenGanreate(recipientEmail);
+
 			mail.setTo(recipientEmail);
 			mail.getModel().put("leaveCancelLink", emailCancelUrl + "?Authorization=" + token);
-			mail.getModel().put("Name", user.get().getFirstName()); // Set recipient's name here
-			mail.getModel().put("LeaveType", event.getLeaveRequestModel().getLeaveType());
-			mail.getModel().put("LeaveDates", event.getLeaveRequestModel().getLeavedate().toString());
-			mail.getModel().put("CancelReason", event.getLeaveRequestModel().getCancelReason());
-			templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
-			Template template = templateConfiguration.getTemplate("leave-cancellation.ftl");
-			String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
-			mail.setContent(mailContent);
-			send(mail);
+			mail.getModel().put("Name", user.get().getFirstName() + " " + user.get().getLastName()); // Set recipient's name here
+			mail.getModel().put("LeaveType", lrm.getLeaveType());
+			mail.getModel().put("LeaveDates", String.join(", ", lrm.getLeavedate())); // Join list into a single string
+			mail.getModel().put("CancelReason", lrm.getCancelReason());
+
+			try {
+				templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
+				Template template = templateConfiguration.getTemplate("leave-cancellation.ftl");
+				String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
+				mail.setContent(mailContent);
+
+				String url = utilityServiceUrl + "/emails/send";
+				LOGGER.info("Sending email to: " + recipientEmail);
+
+				HttpHeaders headers = new HttpHeaders();
+				headers.setContentType(MediaType.APPLICATION_JSON); // Correctly set Content-Type
+				HttpEntity<Mail> request = new HttpEntity<>(mail, headers);
+				restTemplate.postForEntity(url, request, String.class);
+			} catch (TemplateException | IOException e) {
+				throw new MessagingException("Failed to process email template", e);
+			}
 		}
-		return "Mail for Leave Cancellation sent successfully";
+
+		return "Mail Sent Successfully for Leave Cancellation";
 	}
 
 	@Override
 	public void sendLeaveCancelEmail(OnLeaveCancelEvent onLeaveCancelEvent) {
-		log.info("sendAccountChangeEmailCancelled");
-		String recipientAddress = null;
+		log.info("sendLeaveCancelEmail started");
+		// Extract recipient address from leaveInfo
+		String recipientAddress = onLeaveCancelEvent.getLeaveInfo().map(LeaveRequestModel::getEmail).orElse(null);  // or provide a default address if appropriate
+		if (recipientAddress == null) {
+			log.error("Recipient address is null, cannot send email");
+			throw new MailSendException("Recipient address is null");
+		}
 		try {
 			sendleaveCancelResponseEmail(onLeaveCancelEvent, recipientAddress);
 		} catch (IOException | TemplateException | MessagingException e) {
-			throw new MailSendException(recipientAddress);
+			log.error("Failed to send email", e);
+			throw new MailSendException("Failed to send email to " + recipientAddress, e);
 		}
 	}
-	private void sendleaveCancelResponseEmail(OnLeaveCancelEvent onLeaveCancelEvent, String to) throws MessagingException, IOException, TemplateException {
-		Mail mail = new Mail();
+	private void sendleaveCancelResponseEmail(OnLeaveCancelEvent onLeaveCancelEvent, String recipientAddress) throws MessagingException, IOException, TemplateException {
 		LeaveRequestModel leaveInfo = onLeaveCancelEvent.getLeaveInfo().orElseThrow(() -> new IllegalArgumentException("Leave info is missing"));
+		Mail mail = new Mail();
 		mail.setSubject("Leave Cancel Request Status");
 		mail.setFrom(mailFrom);
-		mail.setTo(leaveInfo.getEmail());
+		mail.setTo(recipientAddress);  // Ensure recipient address is correctly set
+		mail.setModel(new HashMap<>());  // Initialize model
 		mail.getModel().put("Message", leaveInfo.getMessage() != null ? leaveInfo.getMessage() : "No message provided");
 		mail.getModel().put("Name", leaveInfo.getName() != null ? leaveInfo.getName() : "N/A");
-		mail.getModel().put("LeaveBalance", leaveInfo.getLeaveBalance() != null ? leaveInfo.getLeaveBalance().toString() : "N/A");
+//		mail.getModel().put("LeaveBalance", leaveInfo.getLeaveBalance() != null ? leaveInfo.getLeaveBalance().toString() : "N/A");
 		mail.getModel().put("LeaveType", leaveInfo.getLeaveType() != null ? leaveInfo.getLeaveType() : "N/A");
 		mail.getModel().put("CancelReason", leaveInfo.getCancelReason() != null ? leaveInfo.getCancelReason() : "N/A");
 		mail.getModel().put("LeaveDates", leaveInfo.getLeavedate() != null ? String.join(", ", leaveInfo.getLeavedate()) : "N/A");
@@ -560,17 +624,23 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 		try {
 			templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
 			Template template = templateConfiguration.getTemplate("leave_cancellation_status.ftl");
-			// Process template to get email content
 			String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
 			mail.setContent(mailContent);
-			send(mail);
+			String url = utilityServiceUrl + "/emails/send";
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON); // Correctly set Content-Type
+			HttpEntity<Mail> request = new HttpEntity<>(mail, headers);
+			restTemplate.postForEntity(url, request, String.class);
+			ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, request, String.class);
 		} catch (TemplateException | IOException e) {
+			log.error("Failed to process email template", e);
 			throw new MessagingException("Failed to process email template", e);
 		} catch (Exception e) {
+			log.error("Failed to send email", e);
 			throw new MessagingException("Failed to send email", e);
 		}
 	}
-	
+
 	@Override
 	public void sendEmailVerification(OnCompOffDetailsSavedEvent onCompOffDetailsSavedEvent) throws TemplateNotFoundException, MalformedTemplateNameException, ParseException, IOException, MessagingException {
 		Mail mail =  new Mail();
@@ -585,15 +655,15 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 			String email = String.valueOf(priortime.get("email_id"));
 			String token=auth.tokenGanreate(email);
 	//	mail.setTo("sunalisingh.adt@gmail.com");
-			mail.setTo(email);	
-		mail.getModel().put("compOffApprovalLink", onCompOffDetailsSavedEvent.getRedirectUrl1().toUriString()+"?Authorization="+token);		
+			mail.setTo(email);
+		mail.getModel().put("compOffApprovalLink", onCompOffDetailsSavedEvent.getRedirectUrl1().toUriString()+"?Authorization="+token);
 		mail.getModel().put("compOffRejectionLink", onCompOffDetailsSavedEvent.getRedirectUrl2().toUriString()+"?Authorization="+token);
 		mail.getModel().put("CheckInTime", onCompOffDetailsSavedEvent.getCompOff().getCheckin().toString());
 		mail.getModel().put("CheckOutTime", onCompOffDetailsSavedEvent.getCompOff().getCheckout().toString());
 	//	mail.getModel().put("workingHours", onUserRegistrationCompleteEvent.getCompOff().getw);
 		mail.getModel().put("EmpId", String.valueOf(onCompOffDetailsSavedEvent.getCompOff().getEmpId()));
 
-		
+
 		mail.getModel().put("Name", user.get().getFirstName().concat(user.get().getLastName()));
 		mail.getModel().put("Date", onCompOffDetailsSavedEvent.getCompOff().getDate().toString());
 		templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
@@ -606,14 +676,14 @@ public class CommonEmailServiceImpl implements CommonEmailService {
 			e.printStackTrace();
 		}
 		mail.setContent(mailContent);
-		
+
 		// Send email
-					String url = emailServiceUrl + "/emails/send";
+					String url = utilityServiceUrl + "/emails/send";
 					HttpEntity<Mail> request = new HttpEntity<>(mail);
 					restTemplate.postForEntity(url, request, String.class);
 		//send(mail);
 		}
-		
+
 	}
 }
 
