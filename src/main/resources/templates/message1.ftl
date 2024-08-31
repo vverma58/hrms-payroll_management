@@ -67,6 +67,7 @@
 <body>
     <div class="container">
         <p><b>${Message}</b></p>
+        <span class="email color" id="Email">${Email}</span>
     </div>
 </body>
 </html>

@@ -124,10 +124,6 @@
         </table>
 
         <p>
-            Available Leave: <span id="LeaveBalance">${LeaveBalance} </span>
-        </p>
-
-        <p>
             Please take the appropriate action on this leave request.
         </p>
 

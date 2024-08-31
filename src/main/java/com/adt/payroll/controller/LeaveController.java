@@ -105,9 +105,9 @@ public class LeaveController {
 
 
     @PreAuthorize("@auth.allow('ACCEPT_LEAVE_REQUEST')")
-    @GetMapping("/leave/Accepted/{empid}/{leaveId}/{leaveDates}/{leaveType}/{leaveReason}")
+    @GetMapping("/leave/Accepted/{empid}/{leaveId}/{leaveType}/{leaveReason}")
     public ResponseEntity<?> AcceptLeaveRequest(@PathVariable("empid") Integer empid,
-                                                @PathVariable("leaveId") Integer leaveId, @PathVariable("leaveDates") Integer leaveDate, @PathVariable("leaveType") String leaveType, @PathVariable("leaveReason") String leaveRecson) throws TemplateException, MessagingException, IOException {
+                                                @PathVariable("leaveId") Integer leaveId, @PathVariable("leaveType") String leaveType, @PathVariable("leaveReason") String leaveRecson) throws TemplateException, MessagingException, IOException {
         Optional<LeaveRequestModel> leaveRequest = leaveRequestRepo.findById(leaveId);
         freemarkerConfig.setClassForTemplateLoading(getClass(), basePackagePath);
         Template template = freemarkerConfig.getTemplate("message.ftl");
@@ -115,7 +115,7 @@ public class LeaveController {
         String status = "rejected";
         if (leaveRequest.get().getStatus().equalsIgnoreCase("Pending")) {
             LOGGER.info("Payroll service: leave:  AcceptLeaveRequest Info level log msg");
-            leaveRequestService.AcceptLeaveRequest(empid, leaveId, leaveDate, leaveType, leaveRecson);
+            leaveRequestService.AcceptLeaveRequest(empid, leaveId, leaveType, leaveRecson);
             model.put("Message", " leave request has been successfully approved.!");
             model.put("Email", "");
             return new ResponseEntity<>(FreeMarkerTemplateUtils.processTemplateIntoString(template, model), HttpStatus.OK);
@@ -184,12 +184,14 @@ public class LeaveController {
         LOGGER.info("Payroll service: leave: cancelApprovedLeaveByLeaveId Info level log msg");
         return new ResponseEntity<>(leaveRequestService.cancelApprovedLeaveByLeaveId(leaveId, cancelReason, empId), HttpStatus.OK);
     }
+
     @PreAuthorize("@auth.allow('CHANGE_LEAVE_REQ_STATUS_TO_CANCELLED')")
     @GetMapping("/leave/cancel/{empid}/{leaveId}/{leaveType}/{cancelReason}")
     public ResponseEntity<?> CancelLeaveRequest(@PathVariable("empid") Integer empid,
                                                 @PathVariable("leaveId") Integer leaveId,
                                                 @PathVariable("leaveType") String leaveType,
                                                 @PathVariable("cancelReason") String cancelReason) throws TemplateException, MessagingException, IOException {
+
         Optional<LeaveRequestModel> leaveRequestOpt = leaveRequestRepo.findById(leaveId);
         if (!leaveRequestOpt.isPresent()) {
             return new ResponseEntity<>("Leave request not found", HttpStatus.NOT_FOUND);

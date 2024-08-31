@@ -19,7 +19,7 @@ public interface LeaveRequestService {
 
 	public Page<LeaveRequestModel> getLeaveRequestDetailsByEmpId(int page, int size,Integer empid);
 
-	public String AcceptLeaveRequest(Integer empid, Integer leaveId,Integer leaveDate ,String leavetype, String leaveReason) throws TemplateException, MessagingException, IOException;
+	public String AcceptLeaveRequest(Integer empid, Integer leaveId,String leavetype, String leaveReason) throws TemplateException, MessagingException, IOException;
 	
 	public String RejectLeaveRequest(Integer empid, Integer leaveId,String leavetype, String leaveReason) throws TemplateException, MessagingException, IOException;
 

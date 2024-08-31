@@ -113,11 +113,6 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 				}
 			}
 		}
-		String sql="select leave_balance from payroll_schema.leave_balance where emp_id="+lr.getEmpid();
-		 List<Map<String, Object>> tableData = dataExtractor.extractDataFromTable(sql);
-		 Map<String, Object> firstMap = tableData.get(0);
-		 lr.setLeaveBalance(Integer.valueOf(String.valueOf(firstMap.get("leave_balance"))));
-
 		if (counter == 0) {
 			lr.setStatus("Pending");
 			long millisecondsInFiveDays = TimeUnit.DAYS.toMillis(5);
@@ -131,7 +126,7 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 						.scheme(scheme)
 						.host(ipaddress)
 						.port(serverPort)
-						.path(context+"/payroll/leave/leave/Accepted/"+ id + "/" + leaveId + "/" + lr.getLeavedate().size()+"/"+lr.getLeaveType()+"/"+lr.getLeaveReason());
+						.path(context+"/payroll/leave/leave/Accepted/"+ id + "/" + leaveId + "/"+lr.getLeaveType()+"/"+lr.getLeaveReason());
 
 
 			 UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance()
@@ -184,7 +179,7 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 	}
 
 	@Override
-	public String AcceptLeaveRequest(Integer empid, Integer leaveId, Integer leaveDate ,String leaveType,String leaveReason)
+	public String AcceptLeaveRequest(Integer empid, Integer leaveId,String leaveType,String leaveReason)
 			throws TemplateException, MessagingException, IOException {
 		Optional<LeaveRequestModel> leaveRequest = Optional.of(new LeaveRequestModel());
 		LeaveRequestModel leaveR = leaveRequestRepo.search(empid, leaveId);
@@ -193,35 +188,24 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 		String email = user.get().getEmail();
 		if (leaveR != null && leaveR.getStatus().equalsIgnoreCase("Pending")) {
 			String message = "Accepted";
-			LeaveBalance leaveBalance = leaveBalanceRepo.findByEmpId(empid);
-			if (leaveBalance.getLeaveBalance() >= leaveDate) {
-				leaveBalance.setLeaveBalance(leaveBalance.getLeaveBalance() - leaveDate);
-				leaveBalance.setPaidLeave(leaveBalance.getPaidLeave() + leaveDate);
-			} else {
-				int leaveNo = leaveDate - leaveBalance.getLeaveBalance();
-				leaveBalance.setPaidLeave(leaveBalance.getPaidLeave() + leaveBalance.getLeaveBalance());
-				leaveBalance.setUnpaidLeave(leaveNo);
-				leaveBalance.setLeaveBalance(0);
-			}
 			List<String> leaveDatelist = new ArrayList<>();
 			String sql = "select leavedate from payroll_schema.leave_dates where leave_id=" + leaveId;
 			List<Map<String, Object>> leaveData = dataExtractor.extractDataFromTable(sql);
 			for (Map<String, Object> leaveMap : leaveData) {
 				leaveDatelist.add((String.valueOf(leaveMap.get("leavedate"))));
 			}
-			leaveRequest.get().setName(leaveBalance.getName());
+			leaveRequest.get().setEmpid(empid);
+			leaveRequest.get().setLeaveid(leaveId);
+			leaveRequest.get().setName(user.get().getFirstName()+" "+user.get().getLastName());
 			leaveRequest.get().setLeaveType(leaveType);
 			leaveRequest.get().setLeaveReason(leaveReason);
 			leaveRequest.get().setLeavedate(leaveDatelist);
 			leaveRequest.get().setStatus(message);
-			leaveRequest.get().setLeaveBalance(leaveBalance.getLeaveBalance());
 			leaveRequest.get().setEmail(email);
 			leaveRequest.get().setMessage("Your leave request has been approved. Find blow leave request approved details");
-			leaveR.getLeaveBalance();
 			OnLeaveAcceptOrRejectEvent onLeaveAcceptOrRejectEvent = new OnLeaveAcceptOrRejectEvent(leaveRequest);
 			applicationEventPublisher.publishEvent(onLeaveAcceptOrRejectEvent);
 			leaveR.setStatus("Accepted");
-			leaveBalanceRepo.save(leaveBalance);
 			leaveR.setUpdatedBy(auth.getEmail());
 			leaveRequestRepo.save(leaveR);
 			return leaveR.getLeaveid() + " leave Request Accepted";
@@ -239,7 +223,6 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 		Optional<User> user = Optional.ofNullable(userRepo.findById(empid)
 				.orElseThrow(() -> new EntityNotFoundException("employee not found :" + empid)));
 		String email = user.get().getEmail();
-		LeaveBalance leaveBalance = leaveBalanceRepo.findByEmpId(empid);
 		if (leaveR != null && leaveR.getStatus().equalsIgnoreCase("Pending")) {
 			List<String> leaveDatelist = new ArrayList<>();
 			String sql1 = "select leavedate from payroll_schema.leave_dates where leave_id=" + leaveId;
@@ -250,12 +233,13 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 			String message = "Rejected";
 			String sql = "delete from payroll_schema.leave_dates where leave_id=" + leaveId;
 			dataExtractor.insertDataFromTable(sql);
-			leaveRequest.get().setName(leaveBalance.getName());
+			leaveRequest.get().setLeaveid(leaveId);
+			leaveRequest.get().setEmpid(empid);
+			leaveRequest.get().setName(user.get().getFirstName()+" "+user.get().getLastName());
 			leaveRequest.get().setLeaveType(leaveType);
 			leaveRequest.get().setLeaveReason(leaveReason);
 			leaveRequest.get().setLeavedate(leaveDatelist);
 			leaveRequest.get().setStatus(message);
-			leaveRequest.get().setLeaveBalance(leaveBalance.getLeaveBalance());
 			leaveRequest.get().setEmail(email);
 			leaveRequest.get().setMessage("Your leave request has been rejected. Find blow leave request rejected details");
 			leaveR.setStatus("Rejected");
@@ -306,13 +290,12 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 
      public  String reSendLeaveRequest(int leaveId) {
     	 Optional<LeaveRequestModel>  leaveRequest= leaveRequestRepo.findById(leaveId);
+		 Optional<User> user = userRepo.findById(leaveRequest.get().getEmpid());
     	if(leaveRequest.isPresent()) {
     		int id=leaveRequest.get().getEmpid();
-    		Optional<LeaveModel>leaveBalance= leaveRepository.findById(id);
     		LeaveRequestModel leaveReq=	leaveRequest.get();
-    		leaveReq.setLeaveBalance(leaveBalance.get().getLeaveBalance());
     		leaveReq.setStatus("Pending");
-    		leaveReq.setName(leaveBalance.get().getName());
+    		leaveReq.setName(user.get().getFirstName()+" "+user.get().getLastName());
     		long millisecondsInFiveDays = TimeUnit.DAYS.toMillis(5);
     		long currentTime=System.currentTimeMillis();
     		leaveReq.setExpiryTime(currentTime+millisecondsInFiveDays);
@@ -342,11 +325,9 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 					.orElseThrow(() -> new IllegalArgumentException("Leave request not found for empId: " + empId + " and leaveId: " + leaveId));
 		}
 
-
 	@Override
 	public String cancelApprovedLeaveByLeaveId(Integer leaveId, String cancelReason, Integer empId) {
 		LOGGER.info("Payroll service: LeaveRequestServiceImpl: cancelApprovedLeaveByLeaveId Info level log msg");
-
 		// Fetch leave request by leaveId
 		LeaveRequestModel lr = leaveRequestRepo.findById(leaveId)
 				.orElseThrow(() -> new RuntimeException("Leave Request not found with ID: " + leaveId));
@@ -354,36 +335,31 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 		if ("Accepted".equals(lr.getStatus()) || "Pending".equals(lr.getStatus())) {
 			lr.setCancelReason(cancelReason);
 			leaveRequestRepo.save(lr);
-
 			// Build the cancellation URL
 			UriComponentsBuilder urlBuilderCancelled = ServletUriComponentsBuilder.newInstance()
 					.scheme(scheme)
 					.host(ipaddress)
 					.port(serverPort)
 					.path(context + "/payroll/leave/leave/cancel/" + lr.getEmpid() + "/" + leaveId + "/" + lr.getLeaveType() + "/" + lr.getCancelReason());
-
 			// Publish the cancellation event
 			OnLeaveRequestCancelEvent onLeaveRequestCancelEvent = new OnLeaveRequestCancelEvent(urlBuilderCancelled, lr);
 			applicationEventPublisher.publishEvent(onLeaveRequestCancelEvent);
-
-
 			return "Leave  Cancellation request with ID " + leaveId + " has been Submitted Successfully.";
 		} else {
 			return "Cannot request cancellation with ID " + leaveId + " because its status is not Approved or Pending.";
 		}
 	}
+
 	@Override
 	public String cancelLeaveRequest(Integer empid, Integer leaveId, String leaveType, String cancelReason) {
 		// Fetch the leave request model
 		LeaveRequestModel leaveR = leaveRequestRepo.search(empid, leaveId);
 		User user = userRepo.findById(empid).orElseThrow(() -> new EntityNotFoundException("employee not found :" + empid));
 		String email = user.getEmail();
-		LeaveBalance leaveBalance = leaveBalanceRepo.findByEmpId(empid);
-
+		String name = user.getFirstName() + " " + user.getLastName();
 		if (leaveR != null && ("Pending".equalsIgnoreCase(leaveR.getStatus()) ||
 				"Accepted".equalsIgnoreCase(leaveR.getStatus())
-				)) {
-
+		)) {
 			// Fetch leave dates before deletion
 			// SQL query to get leave dates for the given leave_id
 			String sql = "SELECT leavedate FROM payroll_schema.leave_dates WHERE leave_id = ?";
@@ -392,39 +368,23 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 			for (Map<String, Object> leaveMap : leaveData) {
 				leaveDatelist.add((String) leaveMap.get("leavedate"));
 			}
-			if ("Accepted".equalsIgnoreCase(leaveR.getStatus())) {
-				int daysOfLeave = leaveDatelist.size();
-				int currentLeaveBalance = leaveBalance.getLeaveBalance();
-				int newLeaveBalance = currentLeaveBalance + daysOfLeave;
-				leaveBalance.setLeaveBalance(newLeaveBalance);
-				leaveBalanceRepo.save(leaveBalance);
+			String sql1 = "DELETE FROM payroll_schema.leave_dates WHERE leave_id = ?";
+			dataExtractor.insertDataFromTable1(sql1, leaveId);
+			leaveR.setCancelReason(cancelReason);
+			leaveR.setEmail(email);
+			leaveR.setName(name);
+			leaveR.setMessage("Your Leave Cancellation Request has been approved. Find below leave request approved details");
+			leaveR.setStatus("Cancelled"); // Update status to 'Cancelled'
 
-
-				String sql1 = "DELETE FROM payroll_schema.leave_dates WHERE leave_id = ?";
-				dataExtractor.insertDataFromTable1(sql1, leaveId);
-				leaveR.setCancelReason(cancelReason);
-				leaveR.setEmail(email);
-				leaveR.setMessage("Your Leave Cancellation Request has been approved. Find below leave request approved details");
-				leaveR.setStatus("Cancelled"); // Update status to 'Cancelled'
-				leaveR.setName(leaveBalance.getName());
-				leaveR.setLeaveBalance(newLeaveBalance); // Update with new leave balance
-				leaveR.setLeavedate(leaveDatelist); // Include leave dates in the model if needed for email
-				leaveRequestRepo.save(leaveR);
-			} else {
-				// Handle case where the leave request is not "Accepted"
-				throw new IllegalStateException("The leave request status is not 'Accepted' and cannot be cancelled.");
-			}
-
-			// Publish leave cancellation event
+			leaveR.setLeavedate(leaveDatelist); // Include leave dates in the model if needed for email
+			leaveRequestRepo.save(leaveR);
 			OnLeaveCancelEvent onLeaveCancelEvent = new OnLeaveCancelEvent(Optional.of(leaveR));
 			applicationEventPublisher.publishEvent(onLeaveCancelEvent);
-
 			return leaveR.getLeaveid() + " leave Request Cancelled";
 		} else {
 			return empid + " leave request status already updated";
 		}
 	}
-
 }
 
 
