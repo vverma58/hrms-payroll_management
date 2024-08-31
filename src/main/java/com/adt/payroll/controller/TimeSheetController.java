@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -132,6 +133,18 @@ public class TimeSheetController {
         LOGGER.info("API Call From IP: " + request.getRemoteHost());
         return new ResponseEntity<>(timeSheetService.checkPriorStatus(empId), HttpStatus.OK);
     }
+
+    //@PreAuthorize("@auth.allow('GET_ALL_EMPLOYEE_PRIORTIME_REQUEST')")
+    @GetMapping("/getAllPriorTimeRequest")
+    public ResponseEntity<Page<Map.Entry<Integer, List<Priortime>>>> getAllEmployeePriorTimeRequest(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
+        LOGGER.info("API Call From IP: " + request.getRemoteHost());
+        Page<Map.Entry<Integer, List<Priortime>>> pagedResult = timeSheetService.getAllEmployeePriorTimeRequest(page, size);
+        return new ResponseEntity<>(pagedResult, HttpStatus.OK);
+    }
+
 
     @PreAuthorize("@auth.allow('GET_ATTENDANCE_BY_EMPLOYEE_ID',T(java.util.Map).of('currentUser', #empId))")
     @GetMapping("/empAttendence")

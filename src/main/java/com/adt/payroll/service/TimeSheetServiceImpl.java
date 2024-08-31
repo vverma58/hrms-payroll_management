@@ -38,6 +38,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -1081,4 +1085,31 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
     public Optional<TimeSheetModel> getTimeSheetByEmployeeIdAndDate(int employeeId, String date) {
         return timeSheetRepo.findByEmployeeIdAndDate(employeeId, date);
     }
+
+    @Override
+    public Page<Map.Entry<Integer, List<Priortime>>> getAllEmployeePriorTimeRequest(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<Priortime> priorTimePage = priorTimeRepository.findAll(pageable);
+
+        Map<Integer, List<Priortime>> groupedRecords = new HashMap<>();
+
+        for (Priortime priorTime : priorTimePage.getContent()) {
+            if ("Pending".equalsIgnoreCase(priorTime.getStatus())) {
+                User user = userRepo.findById(priorTime.getEmployeeId()).orElse(null);
+                if (user != null) {
+                    priorTime.setEmployeeName(user.getFirstName() + " " + user.getLastName());
+                }
+
+                if (!groupedRecords.containsKey(priorTime.getEmployeeId())) {
+                    groupedRecords.put(priorTime.getEmployeeId(), new ArrayList<>());
+                }
+                groupedRecords.get(priorTime.getEmployeeId()).add(priorTime);
+            }
+        }
+
+        List<Map.Entry<Integer, List<Priortime>>> entryList = new ArrayList<>(groupedRecords.entrySet());
+        return new PageImpl<>(entryList, pageable, priorTimePage.getTotalElements());
+    }
+
 }
