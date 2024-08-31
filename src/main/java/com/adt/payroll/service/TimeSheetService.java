@@ -6,10 +6,12 @@ import java.io.ByteArrayInputStream;
 import java.text.ParseException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.io.IOException;
 
 
+import org.springframework.data.domain.Page;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.adt.payroll.dto.CheckStatusDTO;
@@ -70,6 +72,8 @@ List<TimesheetDTO> empAttendence(int empId, LocalDate fromDate, LocalDate toDate
 	String updateCheckInCheckOutByEmpId(int empId, String checkInTime, String checkOutTime, String date);
 
 	Optional<TimeSheetModel> getTimeSheetByEmployeeIdAndDate(int employeeId, String date);
+
+	Page<Map.Entry<Integer, List<Priortime>>> getAllEmployeePriorTimeRequest(int page, int size);
 
 }
 
