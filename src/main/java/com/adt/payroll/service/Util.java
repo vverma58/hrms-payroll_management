@@ -5,25 +5,24 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.Month;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAdjusters;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
+import com.adt.payroll.model.Holiday;
+import com.adt.payroll.repository.HolidayRepo;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bouncycastle.jcajce.provider.asymmetric.dsa.DSASigner.stdDSA;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
@@ -37,6 +36,10 @@ import com.itextpdf.io.image.ImageDataFactory;
 public class Util {
     @Value("${time.zone}")
     private String timezone;
+
+
+	@Autowired
+	private HolidayRepo holidayRepo;
     
     @Value("${holiday}")
     private String[] holiday;
@@ -304,4 +307,39 @@ public class Util {
 		cal.set(Calendar.DAY_OF_MONTH, day);
 		return f.format(cal.getTime());
 	}
+
+
+	public List<LocalDate> getWorkingDaysOfPreviousAndCurrentMonth() {
+
+		LocalDate previousMonthStartDate = LocalDate.now().minusMonths(1).with(TemporalAdjusters.firstDayOfMonth());
+
+		LocalDate currentMonthEndDate = LocalDate.now().with(TemporalAdjusters.lastDayOfMonth());
+
+		List<LocalDate> workingDays = new ArrayList<>();
+		Set<DayOfWeek> weekend = EnumSet.of(DayOfWeek.SUNDAY);
+
+		for (LocalDate date = previousMonthStartDate; !date.isAfter(currentMonthEndDate); date = date.plusDays(1)) {
+			DayOfWeek dayOfWeek = date.getDayOfWeek();
+
+			if (!weekend.contains(dayOfWeek)) {
+				if (dayOfWeek == DayOfWeek.SATURDAY) {
+					int weekOfMonth = date.get(ChronoField.ALIGNED_WEEK_OF_MONTH);
+					if (weekOfMonth % 2 == 1) {
+						workingDays.add(date);
+					}
+				} else {
+					workingDays.add(date);
+				}
+			}
+		}
+
+
+		List<Holiday> holidays = holidayRepo.findAll();
+		for (Holiday holiday : holidays) {
+			workingDays.remove(holiday.getDate());
+		}
+
+		return workingDays;
+	}
+
 }

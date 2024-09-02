@@ -6,13 +6,16 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.format.TextStyle;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import com.adt.payroll.model.LeaveBalance;
 import com.adt.payroll.repository.LeaveBalanceRepository;
 //import jakarta.transaction.Transactional;
+import com.adt.payroll.service.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.poi.ss.usermodel.Cell;
@@ -38,6 +41,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class MonthlyScheduler {
 
 	private static final Logger log = LogManager.getLogger(MonthlyScheduler.class);
+
+	@Autowired
+	private Util util;
 
 	@Autowired
 	private LeaveRepository leaveRepository;
@@ -134,110 +140,156 @@ public class MonthlyScheduler {
 		}
 
 	}
-	//@Scheduled(cron = "0 */1 * * * *")
-// @Scheduled(cron = "0 0 8 * * MON") // Executes every Monday at 8 AM
-//	public String sendLeaveNotificationForTimesheet() {
-//		log.info("Generate time sheet report and handle leaves for Date");
-//		LocalDate currentDate = LocalDate.now();
-//		//LocalDate startDate = currentDate.withDayOfMonth(1);
-//		LocalDate endDate = currentDate.minusDays(1);
-//		LocalDate startDate = endDate.withDayOfMonth(7);
-//
-//		//LocalDate endDate = currentDate.minusDays(1); // Set endDate to yesterday
-//		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-//		String formattedStartDate = startDate.format(formatter);
-//		String formattedEndDate = endDate.format(formatter);
-//		List<TimeSheetModel> timeSheet = timeSheetRepo.findTimeSheet(formattedStartDate, formattedEndDate);
-//
-//		// Get working dates for the current month up to and including yesterday
-//		List<LocalDate> workingDates = calculateWorkingDates(startDate, endDate);
-//
-//		if (!timeSheet.isEmpty()) {
-//			Map<Integer, List<TimeSheetModel>> employeeTimeSheetDetails = timeSheet.stream()
-//					.collect(Collectors.groupingBy(TimeSheetModel::getEmployeeId));
-//
-//			for (Map.Entry<Integer, List<TimeSheetModel>> entry : employeeTimeSheetDetails.entrySet()) {
-//				Integer employeeId = entry.getKey();
-//				List<TimeSheetModel> timeSheets = entry.getValue();
-//
-//				try {
-//					// Mark absences and log absent dates
-//					List<LocalDate> absentDates = markAbsences(timeSheets, workingDates, employeeId);
-//					if (absentDates.isEmpty()) {
-//						log.info("No absences recorded for employee: {}", employeeId);
-//					} else {
-//						log.info("Absence recorded successfully for employee: {}. Absent Dates: {}", employeeId, absentDates);
-//					}
-//				} catch (Exception ex) {
-//					log.error("Error processing leave notification for employeeId: {}. Exception message: {}", employeeId, ex.getMessage(), ex);
-//				}
-//			}
-//			return "Leave notifications sent successfully for timesheets.";
-//		} else {
-//			log.info("No timesheets found for the current month.");
-//			return "No timesheets found for the current month.";
-//		}
-//	}
-//
-//	private List<LocalDate> markAbsences(List<TimeSheetModel> timeSheets, List<LocalDate> workingDates, int employeeId) {
-//		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-//		Set<LocalDate> datesWithRecords = timeSheets.stream()
-//				.map(ts -> {
-//					LocalDate date = LocalDate.parse(ts.getDate(), formatter);
-//					log.info("Recorded date for employee {}: {}", employeeId, date);
-//					return date;
-//				})
-//				.collect(Collectors.toSet());
-//
-//		List<LocalDate> absentDates = new ArrayList<>();
-//
-//		for (LocalDate date : workingDates) {
-//			log.info("Checking working date: {}", date);
-//			if (!datesWithRecords.contains(date)) {
-//				absentDates.add(date);
-//				try {
-//					// Mark absence in the database
-//					TimeSheetModel absenceRecord = new TimeSheetModel();
-//					absenceRecord.setEmployeeId(employeeId);
-//					absenceRecord.setDate(date.format(formatter));
-//					absenceRecord.setStatus("Absent");
-//					absenceRecord.setDay(date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH)); // Set day of the week
-//
-//					// Save or update the record in the database
-//					TimeSheetModel existingRecord = timeSheetRepo.findByEmployeeIdAndDate(employeeId, date.format(formatter)).orElse(null);
-//					if (existingRecord != null) {
-//						// Update the existing record
-//						existingRecord.setStatus("Absent");
-//						existingRecord.setDay(date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH));
-//						timeSheetRepo.save(existingRecord);
-//					} else {
-//						// Save a new record
-//						timeSheetRepo.save(absenceRecord);
-//					}
-//
-//					log.info("Employee ID {} was absent on {} ({})", employeeId, date, absenceRecord.getDay());
-//				} catch (Exception e) {
-//					log.error("Error marking absence for employeeId: {} on date: {}", employeeId, date, e);
-//				}
-//			}
-//		}
-//
-//		return absentDates;
-//	}
+	
+	@Scheduled(cron = "0 0 8 * * MON")
+	public void sendLeaveNotificationForTimesheet() {
+		log.info("Generate timesheet report and mark absence for employees who were absent during working days");
 
-	private List<LocalDate> calculateWorkingDates(LocalDate startDate, LocalDate endDate) {
-		List<LocalDate> workingDates = new ArrayList<>();
-		LocalDate currentDate = startDate;
+		List<LocalDate> workingDates = util.getWorkingDaysOfPreviousAndCurrentMonth();
 
-		while (!currentDate.isAfter(endDate)) {
-			workingDates.add(currentDate);
-			currentDate = currentDate.plusDays(1);
+		LocalDate[] dates = calculateStartAndEndDates(workingDates);
+		LocalDate startDate = dates[0];
+		LocalDate endDate = dates[1];
+
+		log.info("Calculated start date: {}", startDate);
+		log.info("Calculated end date: {}", endDate);
+
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+		String formattedStartDate = startDate.format(formatter);
+		String formattedEndDate = endDate.format(formatter);
+		log.info("Start Date: {}, End Date: {}", formattedStartDate, formattedEndDate);
+
+		List<TimeSheetModel> timeSheet = timeSheetRepo.findTimeSheetWithValues(formattedStartDate, formattedEndDate);
+
+		if (!timeSheet.isEmpty()) {
+			LocalDate[] weekDates = calculateStartAndEndDates(workingDates);
+			List<LocalDate> workingDatesInWeek = workingDates.stream()
+					.filter(date -> !date.isBefore(weekDates[0]) && !date.isAfter(weekDates[1]))
+					.collect(Collectors.toList());
+
+			processTimeSheets(timeSheet, workingDatesInWeek);
+		} else {
+			log.info("No timesheets found for the current week.");
 		}
-
-		return workingDates;
 	}
 
+	private LocalDate[] calculateStartAndEndDates(List<LocalDate> workingDates) {
+		LocalDate currentDate = LocalDate.now();
+		LocalDate endDate = currentDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusDays(1);
+		LocalDate startDate = endDate.minusDays(6);
 
+		while (!workingDates.contains(endDate) && endDate.isAfter(startDate)) {
+			endDate = endDate.minusDays(1);
+		}
+		while (!workingDates.contains(startDate) && startDate.isBefore(endDate)) {
+			startDate = startDate.plusDays(1);
+		}
+
+		return new LocalDate[]{startDate, endDate};
+	}
+
+	private void processTimeSheets(List<TimeSheetModel> timeSheets, List<LocalDate> workingDatesInWeek) {
+		Map<Integer, List<TimeSheetModel>> employeeTimeSheetDetails = timeSheets.stream()
+				.collect(Collectors.groupingBy(TimeSheetModel::getEmployeeId));
+
+		for (Map.Entry<Integer, List<TimeSheetModel>> entry : employeeTimeSheetDetails.entrySet()) {
+			Integer employeeId = entry.getKey();
+			List<TimeSheetModel> timeSheetsForEmployee = entry.getValue();
+
+			try {
+				List<LocalDate> absentDates = markAbsences(timeSheetsForEmployee, workingDatesInWeek, employeeId);
+				if (absentDates.isEmpty()) {
+					log.info("No absences recorded for employee: {}", employeeId);
+				} else {
+					log.info("Absence recorded successfully for employee: {}. Absent Dates: {}", employeeId, absentDates);
+				}
+			} catch (Exception ex) {
+				log.error("Error processing leave notification for employeeId: {}. Exception message: {}", employeeId, ex.getMessage(), ex);
+			}
+		}
+	}
+
+	private List<LocalDate> markAbsences(List<TimeSheetModel> timeSheets, List<LocalDate> workingDatesInWeek, Integer employeeId) {
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+
+		Set<LocalDate> presentDates = timeSheets.stream()
+				.map(timeSheet -> {
+					try {
+						return LocalDate.parse(timeSheet.getDate(), formatter);
+					} catch (DateTimeParseException e) {
+						log.error("Error parsing date from TimeSheetModel: {}", timeSheet.getDate(), e);
+						return null;
+					}
+				})
+				.filter(Objects::nonNull)
+				.collect(Collectors.toSet());
+
+		log.info("Dates with records: {}", presentDates);
+
+		List<LocalDate> absentDates = workingDatesInWeek.stream()
+				.filter(date -> !presentDates.contains(date))
+				.collect(Collectors.toList());
+
+		List<User> activeEmployees = userRepo.findAllByIsActive(true);
+		Set<Integer> employeeIdsWithTimeSheets = timeSheets.stream()
+				.map(TimeSheetModel::getEmployeeId)
+				.collect(Collectors.toSet());
+
+		for (User employee : activeEmployees) {
+			Integer empId = employee.getId();
+			if (!employeeIdsWithTimeSheets.contains(empId)) {
+				markAbsenceForEmployee(empId, workingDatesInWeek, formatter);
+			}
+		}
+
+		if (!absentDates.isEmpty()) {
+			absentDates.forEach(absentDate -> {
+				try {
+					TimeSheetModel absenceRecord = createAbsenceRecord(employeeId, absentDate, formatter);
+					timeSheetRepo.save(absenceRecord);
+					log.info("Marked absence for employeeId: {} on date: {}", employeeId, absentDate);
+				} catch (Exception ex) {
+					log.error("Error marking absence for employeeId: {} on date: {}. Exception message: {}", employeeId, absentDate, ex.getMessage(), ex);
+				}
+			});
+		}
+
+		return absentDates;
+	}
+
+	private void markAbsenceForEmployee(Integer employeeId, List<LocalDate> workingDatesInWeek, DateTimeFormatter formatter) {
+		workingDatesInWeek.forEach(date -> {
+			try {
+				Optional<TimeSheetModel> existingRecords = timeSheetRepo.findByEmployeeIdAndDate(employeeId, date.format(formatter));
+				if (existingRecords.isEmpty()) {
+					TimeSheetModel absenceRecord = createAbsenceRecord(employeeId, date, formatter);
+					timeSheetRepo.save(absenceRecord);
+					log.info("Marked absence for employeeId: {} on date: {}", employeeId, date);
+				} else {
+					log.info("Absence record already exists for employeeId: {} on date: {}", employeeId, date);
+				}
+			} catch (Exception ex) {
+				log.error("Error marking absence for employeeId: {} on date: {}. Exception message: {}", employeeId, date, ex.getMessage(), ex);
+			}
+		});
+	}
+
+	private TimeSheetModel createAbsenceRecord(Integer employeeId, LocalDate date, DateTimeFormatter formatter) {
+		DateTimeFormatter monthFormatter = DateTimeFormatter.ofPattern("MMMM");
+		DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("EEEE");
+
+		TimeSheetModel absenceRecord = new TimeSheetModel();
+		absenceRecord.setEmployeeId(employeeId);
+		absenceRecord.setDate(date.format(formatter));
+		absenceRecord.setStatus("Absent");
+		String monthInUpperCase = date.format(monthFormatter).toUpperCase();
+		absenceRecord.setMonth(monthInUpperCase);
+		absenceRecord.setDay(date.format(dayFormatter));
+		absenceRecord.setYear(String.valueOf(date.getYear()));
+
+		return absenceRecord;
+	}
+}
 
 
 
@@ -275,4 +327,4 @@ public class MonthlyScheduler {
 //		});
 //		return "Leave notifications and balances sent successfully for users.";
 //	}
-}
+
