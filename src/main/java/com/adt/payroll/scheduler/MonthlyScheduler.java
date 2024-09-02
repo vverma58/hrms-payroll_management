@@ -140,8 +140,8 @@ public class MonthlyScheduler {
 		}
 
 	}
-	// @Scheduled(cron = "0 0 8 * * MON")
-	@Scheduled(cron = "0 * * * * *")
+	
+	@Scheduled(cron = "0 0 8 * * MON")
 	public void sendLeaveNotificationForTimesheet() {
 		log.info("Generate timesheet report and mark absence for employees who were absent during working days");
 
