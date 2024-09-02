@@ -69,6 +69,14 @@ public interface TimeSheetRepo extends JpaRepository<TimeSheetModel, Integer> {
 		"OR (t.total_working_hours IS NULL OR t.total_working_hours<'09:30:00'))", nativeQuery = true)
 public List<TimeSheetModel> findTimeSheetWithNullValues(String startDate, String endDate);
 
+
+	@Query(value = "SELECT * FROM payroll_schema.Time_sheet t " +
+			"WHERE TO_DATE(t.date, 'dd-MM-yyyy') BETWEEN TO_DATE(?1, 'dd-MM-yyyy') AND TO_DATE(?2, 'dd-MM-yyyy') " +
+			"AND t.status = 'Present'",
+			nativeQuery = true)
+	List<TimeSheetModel> findTimeSheetWithValues(String startDate, String endDate);
+
+
 	@Modifying
 	@Query(value = "UPDATE payroll_schema.time_sheet SET day = :day WHERE employee_id = :employeeId AND date = :date", nativeQuery = true)
 	void updateDayColumn(@Param("employeeId") int employeeId, @Param("date") String date, @Param("day") String day);
