@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.adt.payroll.model.Priortime;
@@ -19,19 +21,9 @@ public interface PriorTimeRepository extends JpaRepository<Priortime,Integer>{
 
 	void save(Optional<Priortime> priortime2);
 	List<Priortime> findByEmployeeIdAndStatusIn(int employeeId, List<String> status);
-	
-	// Priortime findByPrior(int id, String date);
 
-	@Query("SELECT t FROM Priortime t WHERE t.date BETWEEN :fromDate AND :toDate")
-	List<Priortime> findByEmployeeIdAndNameAndDateRange(
-			@Param("fromDate") String fromDate,
-			@Param("toDate") String toDate);
 
-//
-//	@Query("SELECT t FROM Priortime t WHERE t.employeeId = :employeeId AND t.name = :name AND t.date BETWEEN :fromDate AND :toDate")
-//	Optional<Priortime> findByEmployeeIdAndNameAndDateRange(
-//			@Param("employeeId") int employeeId,
-//			//@Param("name") String name,
-//			@Param("fromDate") LocalDate fromDate,
-//			@Param("toDate") LocalDate toDate);
+	@Query("SELECT p FROM Priortime p WHERE TO_DATE(p.date, 'DD-MM-YYYY') BETWEEN TO_DATE(:startDate, 'DD-MM-YYYY') AND  TO_DATE(:endDate, 'DD-MM-YYYY')")
+	Page<Priortime> findByDateRange(@Param("startDate") String startDate, @Param("endDate") String endDate, Pageable pageable);
+
 }

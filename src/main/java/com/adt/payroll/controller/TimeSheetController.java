@@ -135,7 +135,7 @@ public class TimeSheetController {
         return new ResponseEntity<>(timeSheetService.checkPriorStatus(empId), HttpStatus.OK);
     }
 
-    //@PreAuthorize("@auth.allow('GET_ALL_EMPLOYEE_PRIORTIME_REQUEST')")
+    @PreAuthorize("@auth.allow('GET_ALL_EMPLOYEE_PRIORTIME_REQUEST')")
     @GetMapping("/getAllPriorTimeRequest")
     public ResponseEntity<Page<Map.Entry<Integer, List<Priortime>>>> getAllEmployeePriorTimeRequest(
             @RequestParam(defaultValue = "0") int page,
@@ -392,31 +392,28 @@ public class TimeSheetController {
             return ResponseEntity.status(404).body("No time sheet entry found for the given employee and date.");
         }
     }
-
-    @GetMapping("/getPriorTimeByNameAndDate")
-    public ResponseEntity<String> getPriorTimeByNameAndDate(
+    @PreAuthorize("@auth.allow('SEARCH_PRIORTIME_BY_DATE')")
+    @GetMapping("/getPriorTimeDetailsByDate")
+    public ResponseEntity<Page<Priortime>> getPriorTimeByDateRange(
             @RequestParam(value = "from") String fromDate,
-            @RequestParam(value = "to") String toDate) {
+            @RequestParam(value = "to") String toDate,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size) {
         try {
-            List<Priortime> priortimes = priortimeService.getPriorTimeDetailsByNameAndDate(fromDate, toDate);
-
-            if (priortimes.isEmpty()) {
+            Page<Priortime> pagedResult = priortimeService.getPriorTimeDetailsByDateRange(fromDate, toDate, page, size);
+            if (pagedResult.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body("No PriorTime Details found for the given employee, name, and date range.");
+                        .body(null);
             }
-
-            // Convert the list to a suitable format for the response
-            String response = priortimes.stream()
-                    .map(Priortime::toString)
-                    .reduce((a, b) -> a + "\n" + b)
-                    .orElse("");
-
-            return ResponseEntity.ok(response);
-        } catch (DateTimeParseException e) {
+            return ResponseEntity.ok(pagedResult);
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Invalid date format. Please use 'dd-MM-yyyy'.");
+                    .body(null);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
         }
     }
-        }
+}
 
 

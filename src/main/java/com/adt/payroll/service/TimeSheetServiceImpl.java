@@ -18,18 +18,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.format.TextStyle;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -72,6 +63,8 @@ import com.adt.payroll.repository.UserRepo;
 public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService {
 
     private final Logger LOGGER = LoggerFactory.getLogger(this.getClass());
+
+
 
     @Autowired
     private TimeSheetRepo timeSheetRepo;
@@ -1021,10 +1014,7 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
         return priorTimeRepository.findByEmployeeIdAndStatusIn(employeeId, Status);
     }
 
-    @Override
-    public List<Priortime> getPriorTimeDetailsByNameAndDate(String fromDate, String toDate) {
-        return List.of();
-    }
+
 
     @Override
     public String updateCheckInCheckOutByEmpId(int empId, String checkInTime, String checkOutTime, String date) {
@@ -1112,9 +1102,28 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
                 groupedRecords.get(priorTime.getEmployeeId()).add(priorTime);
             }
         }
-
         List<Map.Entry<Integer, List<Priortime>>> entryList = new ArrayList<>(groupedRecords.entrySet());
         return new PageImpl<>(entryList, pageable, priorTimePage.getTotalElements());
     }
+    @Override
+    public Page<Priortime> getPriorTimeDetailsByDateRange(String fromDate, String toDate, int page, int size) {
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+            LocalDate startDate = LocalDate.parse(fromDate, formatter);
+            LocalDate endDate = LocalDate.parse(toDate, formatter);
 
-}
+            // Convert LocalDate to String format for querying
+            String startDateStr = startDate.format(formatter);
+            String endDateStr = endDate.format(formatter);
+
+            // Create a Pageable instance with page and size
+            Pageable pageable = PageRequest.of(page, size);
+
+            // Retrieve paginated records by date range using String format
+            return priorTimeRepository.findByDateRange(startDateStr, endDateStr, pageable);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Invalid date format. Please use 'dd-MM-yyyy'.", e);
+        }
+    }
+    }
+
