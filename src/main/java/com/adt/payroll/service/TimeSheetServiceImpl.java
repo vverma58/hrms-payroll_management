@@ -417,7 +417,12 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
         String from = dateformater.format(cal.getTime());
         String to = dateformater.format(calender.getTime());
         try {
-            String leaveSql = "SELECT ld.leavedate FROM payroll_schema.leave_dates ld JOIN payroll_schema.leave_request lr ON lr.leaveid = ld.leave_id WHERE lr.empid = " + empId + "  AND ld.leavedate BETWEEN " + "'" + to + "'" + " AND " + "'" + from + "'";
+          //  String leaveSql = "SELECT ld.leavedate FROM payroll_schema.leave_dates ld JOIN payroll_schema.leave_request lr ON lr.leaveid = ld.leave_id WHERE lr.empid = " + empId + "AND lr.status = 'Accepted' "+ "  AND ld.leavedate BETWEEN " + "'" + to + "'" + " AND " + "'" + from + "'";
+            String leaveSql = "SELECT ld.leavedate FROM payroll_schema.leave_dates ld " +
+                    "JOIN payroll_schema.leave_request lr ON lr.leaveid = ld.leave_id " +
+                    "WHERE lr.empid = " + empId + " " +
+                    "AND lr.status = 'Accepted' " +
+                    "AND ld.leavedate BETWEEN '" + to + "' AND '" + from + "'";
             LOGGER.info(leaveSql);
             List<Map<String, Object>> leaveData = dataExtractor.extractDataFromTable(leaveSql);
             List<String> listOfLeaveDate = new ArrayList<>();
@@ -442,9 +447,12 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
                 int dayNumber = cal.get(Calendar.DAY_OF_MONTH);
                 String dayNames[] = new DateFormatSymbols().getWeekdays();
                 String nameDay = dayNames[cal.get(Calendar.DAY_OF_WEEK)];
-                if ((nameDay.equalsIgnoreCase(Util.SATURDAY))
-                        && ((dayNumber >= 8 && dayNumber <= 14) || (dayNumber >= 22 && dayNumber <= 28))
-                        || (nameDay.equalsIgnoreCase(Util.SUNDAY)) || (listOfDate.contains(checkDate)) || (listOfLeaveDate.contains(checkDate))) {
+                if (!(Auth.getCompoffRole("ROLE_PROJ_EMPLOYEE")) && (
+                        (nameDay.equalsIgnoreCase(Util.SATURDAY)
+                                && ((dayNumber >= 8 && dayNumber <= 14) || (dayNumber >= 22 && dayNumber <= 28)))
+                                || nameDay.equalsIgnoreCase(Util.SUNDAY)
+                                || listOfDate.contains(checkDate)
+                                || listOfLeaveDate.contains(checkDate))) {
                     checkDay = false;
                 }
                 String date = f.format(cal.getTime());
