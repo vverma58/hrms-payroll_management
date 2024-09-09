@@ -285,12 +285,12 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
 
 				UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance().scheme(scheme)
 						.host(ipaddress).port(serverPort)
-						.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/empId=" + empId
-								+ "&compOffDate=" + compoffdate1 + "&compOffStatus=Approved");
+						.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/" + empId + "/" + compoffdate1
+								+ "/Approved");
 				UriComponentsBuilder urlBuilder2 = ServletUriComponentsBuilder.newInstance().scheme(scheme)
 						.host(ipaddress).port(serverPort)
-						.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/empId=" + empId
-								+ "&compOffDate=" + compoffdate1 + "&compOffStatus=Rejected");
+						.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/" + empId + "/" + compoffdate1
+								+ "/Rejected");
 				OnCompOffDetailsSavedEvent onCompOffDetailsSavedEvent = new OnCompOffDetailsSavedEvent(compoff,
 						urlBuilder1, urlBuilder2);
 				applicationEventPublisher.publishEvent(onCompOffDetailsSavedEvent);
@@ -327,11 +327,11 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
 			String[] dateTimeParts = date.split(" ");
 			String compoffdate2 = dateTimeParts[0];
 			UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance().scheme(scheme).host(ipaddress)
-					.port(serverPort).path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/empId=" + empId
-							+ "&compOffDate=" + compoffdate2 + "&compOffStatus=Approved");
+					.port(serverPort).path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/" + empId + "/"
+							+ compoffdate2 + "/Approved");
 			UriComponentsBuilder urlBuilder2 = ServletUriComponentsBuilder.newInstance().scheme(scheme).host(ipaddress)
-					.port(serverPort).path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/empId=" + empId
-							+ "&compOffDate=" + compoffdate2 + "&compOffStatus=Rejected");
+					.port(serverPort).path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/" + empId + "/"
+							+ compoffdate2 + "/Rejected");
 
 			OnCompOffDetailsSavedEvent onCompOffDetailsSavedEvent = new OnCompOffDetailsSavedEvent(compoff, urlBuilder1,
 					urlBuilder2);
