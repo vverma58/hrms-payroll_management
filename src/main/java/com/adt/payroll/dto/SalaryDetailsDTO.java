@@ -28,5 +28,6 @@ public class SalaryDetailsDTO {
 	private Double medicalInsurance;
 	private boolean onlyBasic;
 	private Double variableAmount;
+	private boolean specialCase;
 
 }

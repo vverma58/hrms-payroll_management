@@ -338,6 +338,7 @@ public class SalaryDetailsServiceImpl implements SalaryDetailsService {
 						updateEmpsalary.setMedicalInsurance(salaryDetailsDTO.getMedicalInsurance());
 						updateEmpsalary.setGrossSalary(salaryDetailsDTO.getGrossSalary());
 						updateEmpsalary.setNetSalary(salaryDetailsDTO.getNetSalary());
+						updateEmpsalary.setSpecialCase(salaryDetailsDTO.isSpecialCase());
 						salaryDetailsRepo.save(updateEmpsalary);
 
 						return new ResponseEntity("EmployeeSalaryDetails of EmpId:" + salaryDetailsDTO.getEmpId()
@@ -357,6 +358,7 @@ public class SalaryDetailsServiceImpl implements SalaryDetailsService {
 						saveEmpsalary.setMedicalInsurance(salaryDetailsDTO.getMedicalInsurance());
 						saveEmpsalary.setGrossSalary(salaryDetailsDTO.getGrossSalary());
 						saveEmpsalary.setNetSalary(salaryDetailsDTO.getVariableAmount());
+						saveEmpsalary.setSpecialCase(salaryDetailsDTO.isSpecialCase());
 						salaryDetailsRepo.save(saveEmpsalary);
 
 						return new ResponseEntity("EmployeeSalaryDetails of EmpId:" + salaryDetailsDTO.getEmpId()
@@ -388,6 +390,7 @@ public class SalaryDetailsServiceImpl implements SalaryDetailsService {
 					saveEmpSalary.setMedicalInsurance(salaryDetailsDTO.getMedicalInsurance());
 					saveEmpSalary.setGrossSalary(salaryDetailsDTO.getGrossSalary());
 					saveEmpSalary.setNetSalary(salaryDetailsDTO.getNetSalary());
+					saveEmpSalary.setSpecialCase(salaryDetailsDTO.isSpecialCase());
 					salaryDetailsRepo.save(saveEmpSalary);
 
 					return new ResponseEntity("EmployeeSalaryDetails of EmpId:" + salaryDetailsDTO.getEmpId()
