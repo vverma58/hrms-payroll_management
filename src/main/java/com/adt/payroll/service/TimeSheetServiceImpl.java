@@ -202,160 +202,145 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
 
     }
 
-    @Override
-    public String updateCheckOut(int empId, double latitude, double longitude) throws ParseException {
-        double distance = calculateDistance(latitude, longitude, COMPANY_LATITUDE, COMPANY_LONGITUDE);
+	@Override
+	public String updateCheckOut(int empId, double latitude, double longitude) throws ParseException {
+		double distance = calculateDistance(latitude, longitude, COMPANY_LATITUDE, COMPANY_LONGITUDE);
 
-        CurrentDateTime currentDateTime = util.getDateTime();
-        Optional<TimeSheetModel> timeSheetModelOptional = timeSheetRepo.findByEmployeeIdAndDate(empId,
-                currentDateTime.getCurrentDate());
-        CompOff compOff = new CompOff();
-        if (timeSheetModelOptional.isPresent()) {
-            TimeSheetModel timeSheetModel = timeSheetModelOptional.get();
-            if (timeSheetModel.getCheckOut() != null) {
-                return "You Are Already Check Out";
-            }
-            timeSheetModel.setCheckOut(currentDateTime.getCurrentTime());
-            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HH:mm:ss");
-            Date date1 = simpleDateFormat.parse(currentDateTime.getCurrentTime());
-            Date date2 = simpleDateFormat.parse(timeSheetModel.getCheckIn());
+		CurrentDateTime currentDateTime = util.getDateTime();
+		Optional<TimeSheetModel> timeSheetModelOptional = timeSheetRepo.findByEmployeeIdAndDate(empId,
+				currentDateTime.getCurrentDate());
+		CompOff compoff = new CompOff();
+		if (timeSheetModelOptional.isPresent()) {
+			TimeSheetModel timeSheetModel = timeSheetModelOptional.get();
+			if (timeSheetModel.getCheckOut() != null) {
+				return "You Are Already Check Out";
+			}
+			timeSheetModel.setCheckOut(currentDateTime.getCurrentTime());
+			SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HH:mm:ss");
+			Date date1 = simpleDateFormat.parse(currentDateTime.getCurrentTime());
+			Date date2 = simpleDateFormat.parse(timeSheetModel.getCheckIn());
 
+			long differenceInMilliSeconds = Math.abs(date2.getTime() - date1.getTime());
+			long differenceInHours = (differenceInMilliSeconds / (60 * 60 * 1000)) % 24;
+			long differenceInMinutes = (differenceInMilliSeconds / (60 * 1000)) % 60;
+			long differenceInSeconds = (differenceInMilliSeconds / 1000) % 60;
+			LocalTime localTimeDifference = LocalTime.of((int) differenceInHours, (int) differenceInMinutes,
+					(int) differenceInSeconds);
 
-            long differenceInMilliSeconds = Math.abs(date2.getTime() - date1.getTime());
-            long differenceInHours = (differenceInMilliSeconds / (60 * 60 * 1000)) % 24;
-            long differenceInMinutes = (differenceInMilliSeconds / (60 * 1000)) % 60;
-            long differenceInSeconds = (differenceInMilliSeconds / 1000) % 60;
-            LocalTime localTimeDifference = LocalTime.of((int) differenceInHours, (int) differenceInMinutes, (int) differenceInSeconds);
-
-            Time timeDifference = Time.valueOf(localTimeDifference);
-            timeSheetModel.setTotalWorkingHours(timeDifference);
+			Time timeDifference = Time.valueOf(localTimeDifference);
+			timeSheetModel.setTotalWorkingHours(timeDifference);
 //            timeSheetModel
 //                    .setWorkingHour(differenceInHours + ":" + differenceInMinutes + ":" + differenceInSeconds);
-            if (timeSheetModel.getLeaveInterval() != null && !timeSheetModel.getLeaveInterval().isEmpty()) {
-                if (!timeSheetModel.getIntervalStatus()) {
-                    return "Please Resume Your Break";
-                }
-                String poseResumeInterval = timeSheetModel.getLeaveInterval();
-                String arr[] = poseResumeInterval.split(":");
-                long inOutDiff = TimeUnit.HOURS.toMillis(differenceInHours)
-                        + TimeUnit.MINUTES.toMillis(differenceInMinutes)
-                        + TimeUnit.SECONDS.toMillis(differenceInSeconds);
+			if (timeSheetModel.getLeaveInterval() != null && !timeSheetModel.getLeaveInterval().isEmpty()) {
+				if (!timeSheetModel.getIntervalStatus()) {
+					return "Please Resume Your Break";
+				}
+				String poseResumeInterval = timeSheetModel.getLeaveInterval();
+				String arr[] = poseResumeInterval.split(":");
+				long inOutDiff = TimeUnit.HOURS.toMillis(differenceInHours)
+						+ TimeUnit.MINUTES.toMillis(differenceInMinutes)
+						+ TimeUnit.SECONDS.toMillis(differenceInSeconds);
 
-                long poseResumeDiff = TimeUnit.HOURS.toMillis(Integer.parseInt(arr[0]))
-                        + TimeUnit.MINUTES.toMillis(Integer.parseInt(arr[1]))
-                        + TimeUnit.SECONDS.toMillis(Integer.parseInt(arr[2]));
+				long poseResumeDiff = TimeUnit.HOURS.toMillis(Integer.parseInt(arr[0]))
+						+ TimeUnit.MINUTES.toMillis(Integer.parseInt(arr[1]))
+						+ TimeUnit.SECONDS.toMillis(Integer.parseInt(arr[2]));
 
-                long workingMilisecond = inOutDiff - poseResumeDiff;
-                long hours = TimeUnit.MILLISECONDS.toHours(workingMilisecond);
-                long minutes = TimeUnit.MILLISECONDS.toMinutes(workingMilisecond) % 60;
-                long seconds = TimeUnit.MILLISECONDS.toSeconds(workingMilisecond) % 60;
-                String formattedTime = String.format("%02d:%02d:%02d", hours, minutes, seconds);
-                timeSheetModel.setWorkingHour(formattedTime);
-            }
-    //        timeSheetModel.setStatus("Present");
-            timeSheetModel.setIntervalStatus(false);
+				long workingMilisecond = inOutDiff - poseResumeDiff;
+				long hours = TimeUnit.MILLISECONDS.toHours(workingMilisecond);
+				long minutes = TimeUnit.MILLISECONDS.toMinutes(workingMilisecond) % 60;
+				long seconds = TimeUnit.MILLISECONDS.toSeconds(workingMilisecond) % 60;
+				String formattedTime = String.format("%02d:%02d:%02d", hours, minutes, seconds);
+				timeSheetModel.setWorkingHour(formattedTime);
+			}
+			// timeSheetModel.setStatus("Present");
+			timeSheetModel.setIntervalStatus(false);
 
-            if (distance >= MAX_DISTANCE_THRESHOLD) {
-                timeSheetModel.setCheckOutLatitude(String.valueOf(latitude));
-                timeSheetModel.setCheckOutLongitude(String.valueOf(longitude));
-                timeSheetModel.setCheckOutDistance(String.valueOf(distance));
-                timeSheetModel.setCheckOutDistanceStatus("checkedOut out of office");
-                timeSheetRepo.save(timeSheetModel);
-                if (Auth.getCompoffRole("ROLE_PROJ_EMPLOYEE")) {
-                	String dateString = "Thu Feb 14 00:00:00 IST 32"; // Example date string
-                	SimpleDateFormat inputFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yy");
-                	Date currentDate = inputFormat.parse(dateString);
+			if (distance >= MAX_DISTANCE_THRESHOLD) {
+				timeSheetModel.setCheckOutLatitude(String.valueOf(latitude));
+				timeSheetModel.setCheckOutLongitude(String.valueOf(longitude));
+				timeSheetModel.setCheckOutDistance(String.valueOf(distance));
+				timeSheetModel.setCheckOutDistanceStatus("checkedOut out of office");
+				timeSheetRepo.save(timeSheetModel);
+				if (Auth.getCompoffRole("ROLE_PROJ_EMPLOYEE")) {
 
-                	SimpleDateFormat queryFormat = new SimpleDateFormat("yyyy-MM-dd");
-                	String formattedDate = queryFormat.format(currentDate);
+					compoff = compOffRepository.findCompOffByEmployeeIdAndDate(empId, new Date());
+					if (compoff != null) {
 
-                	Date dateForQuery = queryFormat.parse(formattedDate);
+						compoff.setCheckout(new Time(new Date().getTime()));
 
+						compoff.setStatus("Pending");
+						Calendar calendar = Calendar.getInstance();
+						calendar.add(Calendar.MONTH, 2); // Add 2 months to the current date
+						Timestamp expiryTime = new Timestamp(calendar.getTimeInMillis());
+						compoff.setExpiryTime(expiryTime);
+						compOffRepository.save(compoff);
+						timeSheetModel.setStatus("CompOff");
+						timeSheetRepo.save(timeSheetModel);
 
-                	 compOff = compOffRepository.findCompOffByEmployeeIdAndDate(empId,
-                			 new Date());
-                     if (compOff!=null) {
-                    	 
-                    	 compOff.setCheckout(new Time(new Date().getTime()));
-            	
-                    	 compOff.setStatus("Pending");
-               	Calendar calendar = Calendar.getInstance();
-            	calendar.add(Calendar.MONTH, 2); // Add 2 months to the current date
-            	Timestamp expiryTime = new Timestamp(calendar.getTimeInMillis());
-            	compOff.setExpiryTime(expiryTime);
-            	compOffRepository.save(compOff);
-            	timeSheetModel.setStatus("CompOff");
-            	 timeSheetRepo.save(timeSheetModel);
-                }
-                }
-                String date = compOff.getDate().toString();
-                String[] dateTimeParts = date.split(" ");
-                String compoffdate1 = dateTimeParts[0];
-               
-                
-                UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance()
-         				.scheme(scheme)
-         				.host(ipaddress)
-         				.port(serverPort)
-         				.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/empId=" + empId
-								+ "&compOffDate=" + compoffdate1 + "&compOffStatus=Approved");              
-               UriComponentsBuilder urlBuilder2 = ServletUriComponentsBuilder.newInstance()
-         				.scheme(scheme)
-         				.host(ipaddress)
-         				.port(serverPort)
-         				.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/empId=" + empId
-								+ "&compOffDate=" + compoffdate1 + "&compOffStatus=Rejected");
-               OnCompOffDetailsSavedEvent onCompOffDetailsSavedEvent = new OnCompOffDetailsSavedEvent(compOff,
-                       urlBuilder1, urlBuilder2);
-               applicationEventPublisher.publishEvent(onCompOffDetailsSavedEvent);	
-                return " you have Check out with latitude: " + latitude + " and longitude: " + longitude + ", which are not within office covered distance";
-            }
-            timeSheetModel.setEarlyCheckOutStatus(false);
-            timeSheetModel.setCheckOutLatitude(String.valueOf(latitude));
-            timeSheetModel.setCheckOutLongitude(String.valueOf(longitude));
-            timeSheetModel.setCheckOutDistance(String.valueOf(distance));
-            timeSheetModel.setCheckOutDistanceStatus("checkedOut from office");
-            timeSheetRepo.save(timeSheetModel);
-            CompOff  compoff = new CompOff();
-        	
-            if (Auth.getCompoffRole("ROLE_PROJ_EMPLOYEE")) {
-            	String dateString = currentDateTime.getCurrentDate();
-            	SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd"); // Adjust format to match your date string
-            	Date currentDate = dateFormat.parse(dateString);
-                	 
-        	compoff.setCheckout(new Time(new Date().getTime()));
-//        	compoff.setDate(new Date());
-        	
-        	compoff.setStatus("Pending");
-           	Calendar calendar = Calendar.getInstance();
-        	calendar.add(Calendar.MONTH, 2); // Add 2 months to the current date
-        	Timestamp expiryTime = new Timestamp(calendar.getTimeInMillis());
-        	compoff.setExpiryTime(expiryTime);
-            }
-            String date = compOff.getDate().toString();
-            String[] dateTimeParts = date.split(" ");
-            String compoffdate2 = dateTimeParts[0];
-        	UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance()
-     				.scheme(scheme)
-     				.host(ipaddress)
-     				.port(serverPort)
-     				.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/empId=" + empId + "&compOffDate="
-							+ compoffdate2 + "&compOffStatus=Approved");              
-           UriComponentsBuilder urlBuilder2 = ServletUriComponentsBuilder.newInstance()
-     				.scheme(scheme)
-     				.host(ipaddress)
-     				.port(serverPort)
-     				.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/empId=" + empId + "&compOffDate="
-							+ compoffdate2 + "&compOffStatus=Rejected");
+					}
+				}
+				String date = compoff.getDate().toString();
+				String[] dateTimeParts = date.split(" ");
+				String compoffdate1 = dateTimeParts[0];
 
-           OnCompOffDetailsSavedEvent onCompOffDetailsSavedEvent = new OnCompOffDetailsSavedEvent(compoff,
-                   urlBuilder1, urlBuilder2);
-           applicationEventPublisher.publishEvent(onCompOffDetailsSavedEvent);	
-            return "you have Check out with latitude: " + latitude + " and longitude: " + longitude;
-        }
-        return "You Are Not Check in";
+				UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance().scheme(scheme)
+						.host(ipaddress).port(serverPort)
+						.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/" + empId + "/" + compoffdate1
+								+ "/Approved");
+				UriComponentsBuilder urlBuilder2 = ServletUriComponentsBuilder.newInstance().scheme(scheme)
+						.host(ipaddress).port(serverPort)
+						.path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/" + empId + "/" + compoffdate1
+								+ "/Rejected");
+				OnCompOffDetailsSavedEvent onCompOffDetailsSavedEvent = new OnCompOffDetailsSavedEvent(compoff,
+						urlBuilder1, urlBuilder2);
+				applicationEventPublisher.publishEvent(onCompOffDetailsSavedEvent);
+				return " you have Check out with latitude: " + latitude + " and longitude: " + longitude
+						+ ", which are not within office covered distance";
+			}
+			timeSheetModel.setEarlyCheckOutStatus(false);
+			timeSheetModel.setCheckOutLatitude(String.valueOf(latitude));
+			timeSheetModel.setCheckOutLongitude(String.valueOf(longitude));
+			timeSheetModel.setCheckOutDistance(String.valueOf(distance));
+			timeSheetModel.setCheckOutDistanceStatus("checkedOut from office");
+			timeSheetRepo.save(timeSheetModel);
+			compoff = compOffRepository.findCompOffByEmployeeIdAndDate(empId, new Date());
 
-    }
+			if (Auth.getCompoffRole("ROLE_PROJ_EMPLOYEE")) {
+
+				if (compoff != null) {
+
+					compoff.setCheckout(new Time(new Date().getTime()));
+
+					compoff.setStatus("Pending");
+					Calendar calendar = Calendar.getInstance();
+					calendar.add(Calendar.MONTH, 2); // Add 2 months to the current date
+					Timestamp expiryTime = new Timestamp(calendar.getTimeInMillis());
+					compoff.setExpiryTime(expiryTime);
+					compOffRepository.save(compoff);
+					timeSheetModel.setStatus("CompOff");
+					timeSheetRepo.save(timeSheetModel);
+
+				}
+
+			}
+			String date = compoff.getDate().toString();
+			String[] dateTimeParts = date.split(" ");
+			String compoffdate2 = dateTimeParts[0];
+			UriComponentsBuilder urlBuilder1 = ServletUriComponentsBuilder.newInstance().scheme(scheme).host(ipaddress)
+					.port(serverPort).path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/" + empId + "/"
+							+ compoffdate2 + "/Approved");
+			UriComponentsBuilder urlBuilder2 = ServletUriComponentsBuilder.newInstance().scheme(scheme).host(ipaddress)
+					.port(serverPort).path(context + "/payroll/timeSheet/empCompOffApprovedOrRejected/" + empId + "/"
+							+ compoffdate2 + "/Rejected");
+
+			OnCompOffDetailsSavedEvent onCompOffDetailsSavedEvent = new OnCompOffDetailsSavedEvent(compoff, urlBuilder1,
+					urlBuilder2);
+			applicationEventPublisher.publishEvent(onCompOffDetailsSavedEvent);
+			return "you have Check out with latitude: " + latitude + " and longitude: " + longitude;
+		}
+		return "You Are Not Check in";
+
+	}
 
     @Override
     public CheckStatusDTO checkStatus(int empId) {
