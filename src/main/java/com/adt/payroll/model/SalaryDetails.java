@@ -74,6 +74,9 @@ public class SalaryDetails {
 	@Column(name = "bonus")
 	private Double bonus;
 
+	@Column(name = "special_case")
+	private boolean specialCase;
+
 	@OneToOne
 	@JoinColumn(name = "empId", referencedColumnName = "EMPLOYEE_ID", nullable = false, insertable = false, updatable = false)
 	private User employee;
@@ -222,5 +225,9 @@ public class SalaryDetails {
 	public void setEmpId(int empId) {
 		this.empId = empId;
 	}
+
+	public boolean isSpecialCase() { return specialCase;  }
+
+	public void setSpecialCase(boolean specialCase) { this.specialCase = specialCase;  }
 
 }
