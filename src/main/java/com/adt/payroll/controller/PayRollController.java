@@ -21,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.adt.payroll.dto.SalaryDTO;
 import com.adt.payroll.dto.SalaryDetailsDTO;
 import com.adt.payroll.dto.ViewPaySlipDto;
+import com.adt.payroll.exception.NoDataFoundException;
 import com.adt.payroll.model.MonthlySalaryDetails;
 import com.adt.payroll.model.PaySlip;
 import com.adt.payroll.repository.TimeSheetRepo;
@@ -68,6 +69,9 @@ public class PayRollController {
 		try {
 			ViewPaySlipDto viewPaySlipDto = payRollService.viewPay(empId, month, year);
 			return new ResponseEntity<>(viewPaySlipDto, HttpStatus.OK);
+		} catch (NoDataFoundException e) {
+			LOGGER.error("Error occurred: ", e);
+			return new ResponseEntity<>(e.getMessage(), HttpStatus.OK);
 		} catch (Exception e) {
 			LOGGER.error("Error occurred: ", e);
 			return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
@@ -97,9 +101,11 @@ public class PayRollController {
 	@PreAuthorize("@auth.allow('GENERATE_PAYSLIP_FOR_ALL_EMPLOYEE_FROM_DB')")
 	@GetMapping("/generatePaySlipForAll")
 	public ResponseEntity<Object> generatePaySlipForAllEmployees(HttpServletRequest request,
-			@RequestParam(name="emailInput", required = false) String emailInput,@RequestParam(name="isDBSelected")  boolean isDBSelected) throws IOException, ParseException {
+			@RequestParam(name = "emailInput", required = false) String emailInput,
+			@RequestParam(name = "isDBSelected") boolean isDBSelected) throws IOException, ParseException {
 		LOGGER.info("API Call From IP: " + request.getRemoteHost());
-		return new ResponseEntity<>(payRollService.generatePaySlipForAllEmployees(emailInput, isDBSelected), HttpStatus.OK);
+		return new ResponseEntity<>(payRollService.generatePaySlipForAllEmployees(emailInput, isDBSelected),
+				HttpStatus.OK);
 	}
 
 	@PreAuthorize("@auth.allow('GET_EMPLOYEE_PAYROLL_SALARY_DETAILS_BY_EMP_ID')")
@@ -111,22 +117,23 @@ public class PayRollController {
 						+ request.getRemoteHost());
 		return ResponseEntity.ok(payRollService.getEmployeePayrollSalaryDetailsByEmpId(empId));
 	}
-	
+
 	@PreAuthorize("@auth.allow('VERIFY_VALUES')")
 	@PostMapping("/validateData")
 	public ResponseEntity<Object> validatedAmount(@RequestBody SalaryDTO dto) throws IOException, ParseException {
 
 		LOGGER.info("PayrollService: SalaryDetailsController:Getting all Monthly Salary Details Info level log msg");
-		ResponseEntity<Object> monthSalaryResponse =payRollService.validateAmount(dto.getEmpId(), dto);
-		 return monthSalaryResponse;
+		ResponseEntity<Object> monthSalaryResponse = payRollService.validateAmount(dto.getEmpId(), dto);
+		return monthSalaryResponse;
 	}
-	
+
 	@PreAuthorize("@auth.allow('REGENERATE_PAYSLIP')")
 	@PostMapping("/regeneratePayslip")
-	public ResponseEntity<String> regenerateEmployeePayslip(@RequestBody MonthlySalaryDetails dto) throws IOException, DocumentException {
+	public ResponseEntity<String> regenerateEmployeePayslip(@RequestBody MonthlySalaryDetails dto)
+			throws IOException, DocumentException {
 
 		LOGGER.info("PayrollService: SalaryDetailsController:Getting all Monthly Salary Details Info level log msg");
-		String monthSalaryResponse =payRollService.regenerateEmployeePayslip(dto.getEmpId(), dto);
-		 return new ResponseEntity<>(monthSalaryResponse, HttpStatus.OK);
+		String monthSalaryResponse = payRollService.regenerateEmployeePayslip(dto.getEmpId(), dto);
+		return new ResponseEntity<>(monthSalaryResponse, HttpStatus.OK);
 	}
 }

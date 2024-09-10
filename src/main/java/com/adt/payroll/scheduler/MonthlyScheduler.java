@@ -76,7 +76,7 @@ public class MonthlyScheduler {
 
 	}
 
-	//@Scheduled(cron = "0 */2 * * * *")
+//	@Scheduled(cron = "*/2 * * * * *") // for 2 seconds
 	@Scheduled(cron = "0 0 8 * * MON") // Executes on the every Monday at 8 AM
 	public void sendNotificationForTimeSheet() {
 		log.info("Generate weekly time sheet report ");
@@ -95,9 +95,10 @@ public class MonthlyScheduler {
 				try {
 					Optional<User> user = Optional.ofNullable(userRepo.findById(i)
 							.orElseThrow(() -> new NoDataFoundException("employee not found :" + i)));
-					
+
 					ByteArrayOutputStream employeeReport = generateExcelReport(e, user.get().getAdtId());
-					log.info("Sheet generated for employee {}: ",user.get().getFirstName() + " " + user.get().getLastName());
+					log.info("Sheet generated for employee {}: ",
+							user.get().getFirstName() + " " + user.get().getLastName());
 					mailService.sendEmailForTimeSheet(employeeReport,
 							user.get().getFirstName() + " " + user.get().getLastName(), user.get().getEmail(),
 							startDate.format(formatter) + " to " + endDate.format(formatter));
@@ -108,13 +109,13 @@ public class MonthlyScheduler {
 			});
 		}
 	}
- 
+
 	private ByteArrayOutputStream generateExcelReport(List<TimeSheetModel> timeSheet, String adtId) throws IOException {
 		XSSFWorkbook workbook = new XSSFWorkbook();
 		Sheet sheet = workbook.createSheet("TimeSheet Report");
 
 		Row headerRow = sheet.createRow(0);
-		String[] headers = {"ID", "Check-In", "Check-Out", "Working Hour", "Date", "Day"};
+		String[] headers = { "ID", "Check-In", "Check-Out", "Working Hour", "Date", "Day" };
 		for (int i = 0; i < headers.length; i++) {
 			Cell cell = headerRow.createCell(i);
 			cell.setCellValue(headers[i]);
@@ -122,13 +123,15 @@ public class MonthlyScheduler {
 		int rowNum = 1;
 		for (TimeSheetModel timeSheetModel : timeSheet) {
 			Row row = sheet.createRow(rowNum++);
-			//row.createCell(0).setCellValue(String.valueOf(timeSheetModel.getEmployeeId()));
+			// row.createCell(0).setCellValue(String.valueOf(timeSheetModel.getEmployeeId()));
 			row.createCell(0).setCellValue(adtId);
 			row.createCell(1).setCellValue(timeSheetModel.getCheckIn() != null ? timeSheetModel.getCheckIn() : "NULL");
 			row.createCell(2)
 					.setCellValue(timeSheetModel.getCheckOut() != null ? timeSheetModel.getCheckOut() : "NULL");
 			row.createCell(3)
-					.setCellValue(timeSheetModel.getTotalWorkingHours() != null ? timeSheetModel.getTotalWorkingHours().toString() : "NULL");
+					.setCellValue(timeSheetModel.getTotalWorkingHours() != null
+							? timeSheetModel.getTotalWorkingHours().toString()
+							: "NULL");
 			row.createCell(4).setCellValue(timeSheetModel.getDate() != null ? timeSheetModel.getDate() : "NULL");
 			row.createCell(5).setCellValue(timeSheetModel.getDay() != null ? timeSheetModel.getDay() : "NULL");
 		}
@@ -140,7 +143,7 @@ public class MonthlyScheduler {
 		}
 
 	}
-	
+
 	@Scheduled(cron = "0 0 8 * * MON")
 	public void sendLeaveNotificationForTimesheet() {
 		log.info("Generate timesheet report and mark absence for employees who were absent during working days");
@@ -185,7 +188,7 @@ public class MonthlyScheduler {
 			startDate = startDate.plusDays(1);
 		}
 
-		return new LocalDate[]{startDate, endDate};
+		return new LocalDate[] { startDate, endDate };
 	}
 
 	private void processTimeSheets(List<TimeSheetModel> timeSheets, List<LocalDate> workingDatesInWeek) {
@@ -201,38 +204,36 @@ public class MonthlyScheduler {
 				if (absentDates.isEmpty()) {
 					log.info("No absences recorded for employee: {}", employeeId);
 				} else {
-					log.info("Absence recorded successfully for employee: {}. Absent Dates: {}", employeeId, absentDates);
+					log.info("Absence recorded successfully for employee: {}. Absent Dates: {}", employeeId,
+							absentDates);
 				}
 			} catch (Exception ex) {
-				log.error("Error processing leave notification for employeeId: {}. Exception message: {}", employeeId, ex.getMessage(), ex);
+				log.error("Error processing leave notification for employeeId: {}. Exception message: {}", employeeId,
+						ex.getMessage(), ex);
 			}
 		}
 	}
 
-	private List<LocalDate> markAbsences(List<TimeSheetModel> timeSheets, List<LocalDate> workingDatesInWeek, Integer employeeId) {
+	private List<LocalDate> markAbsences(List<TimeSheetModel> timeSheets, List<LocalDate> workingDatesInWeek,
+			Integer employeeId) {
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
-		Set<LocalDate> presentDates = timeSheets.stream()
-				.map(timeSheet -> {
-					try {
-						return LocalDate.parse(timeSheet.getDate(), formatter);
-					} catch (DateTimeParseException e) {
-						log.error("Error parsing date from TimeSheetModel: {}", timeSheet.getDate(), e);
-						return null;
-					}
-				})
-				.filter(Objects::nonNull)
-				.collect(Collectors.toSet());
+		Set<LocalDate> presentDates = timeSheets.stream().map(timeSheet -> {
+			try {
+				return LocalDate.parse(timeSheet.getDate(), formatter);
+			} catch (DateTimeParseException e) {
+				log.error("Error parsing date from TimeSheetModel: {}", timeSheet.getDate(), e);
+				return null;
+			}
+		}).filter(Objects::nonNull).collect(Collectors.toSet());
 
 		log.info("Dates with records: {}", presentDates);
 
-		List<LocalDate> absentDates = workingDatesInWeek.stream()
-				.filter(date -> !presentDates.contains(date))
+		List<LocalDate> absentDates = workingDatesInWeek.stream().filter(date -> !presentDates.contains(date))
 				.collect(Collectors.toList());
 
 		List<User> activeEmployees = userRepo.findAllByIsActive(true);
-		Set<Integer> employeeIdsWithTimeSheets = timeSheets.stream()
-				.map(TimeSheetModel::getEmployeeId)
+		Set<Integer> employeeIdsWithTimeSheets = timeSheets.stream().map(TimeSheetModel::getEmployeeId)
 				.collect(Collectors.toSet());
 
 		for (User employee : activeEmployees) {
@@ -249,7 +250,8 @@ public class MonthlyScheduler {
 					timeSheetRepo.save(absenceRecord);
 					log.info("Marked absence for employeeId: {} on date: {}", employeeId, absentDate);
 				} catch (Exception ex) {
-					log.error("Error marking absence for employeeId: {} on date: {}. Exception message: {}", employeeId, absentDate, ex.getMessage(), ex);
+					log.error("Error marking absence for employeeId: {} on date: {}. Exception message: {}", employeeId,
+							absentDate, ex.getMessage(), ex);
 				}
 			});
 		}
@@ -257,10 +259,12 @@ public class MonthlyScheduler {
 		return absentDates;
 	}
 
-	private void markAbsenceForEmployee(Integer employeeId, List<LocalDate> workingDatesInWeek, DateTimeFormatter formatter) {
+	private void markAbsenceForEmployee(Integer employeeId, List<LocalDate> workingDatesInWeek,
+			DateTimeFormatter formatter) {
 		workingDatesInWeek.forEach(date -> {
 			try {
-				Optional<TimeSheetModel> existingRecords = timeSheetRepo.findByEmployeeIdAndDate(employeeId, date.format(formatter));
+				Optional<TimeSheetModel> existingRecords = timeSheetRepo.findByEmployeeIdAndDate(employeeId,
+						date.format(formatter));
 				if (existingRecords.isEmpty()) {
 					TimeSheetModel absenceRecord = createAbsenceRecord(employeeId, date, formatter);
 					timeSheetRepo.save(absenceRecord);
@@ -269,7 +273,8 @@ public class MonthlyScheduler {
 					log.info("Absence record already exists for employeeId: {} on date: {}", employeeId, date);
 				}
 			} catch (Exception ex) {
-				log.error("Error marking absence for employeeId: {} on date: {}. Exception message: {}", employeeId, date, ex.getMessage(), ex);
+				log.error("Error marking absence for employeeId: {} on date: {}. Exception message: {}", employeeId,
+						date, ex.getMessage(), ex);
 			}
 		});
 	}
@@ -291,11 +296,9 @@ public class MonthlyScheduler {
 	}
 }
 
-
-
-
 //	@Scheduled(cron = "0 */1 * * * *")
-	//@Scheduled(cron = "0 0 0 28-31 * ?") // Executes at midnight on the 28th to 31st of every month
+// @Scheduled(cron = "0 0 0 28-31 * ?") // Executes at midnight on the 28th to
+// 31st of every month
 //	@Transactional
 //	public String sendLeaveNotificationOnMonthlyBasis() {
 //		LocalDate currentDate = LocalDate.now();
@@ -327,4 +330,3 @@ public class MonthlyScheduler {
 //		});
 //		return "Leave notifications and balances sent successfully for users.";
 //	}
-
