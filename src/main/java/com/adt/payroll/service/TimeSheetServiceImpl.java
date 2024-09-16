@@ -152,7 +152,7 @@ public class TimeSheetServiceImpl implements TimeSheetService, PriorTimeService 
 	    LocalDate date = LocalDate.parse(currentDateTime.getCurrentDate(), DateTimeFormatter.ofPattern("dd-MM-yyyy"));
 	    DayOfWeek dayOfWeek = date.getDayOfWeek();
 
-	    Optional<TimeSheetModel> timeSheetModels = timeSheetRepo.findByEmployeeIdAndDate(empId, currentDateTime.getCurrentTime());
+	    Optional<TimeSheetModel> timeSheetModels = timeSheetRepo.findByEmployeeIdAndDate(empId, currentDateTime.getCurrentDate());
 
 	    if (!timeSheetModels.isPresent()) {
 	        TimeSheetModel timeSheetModel = new TimeSheetModel();
