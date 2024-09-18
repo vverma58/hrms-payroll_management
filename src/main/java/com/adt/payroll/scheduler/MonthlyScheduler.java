@@ -2,20 +2,20 @@ package com.adt.payroll.scheduler;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.time.format.TextStyle;
 import java.time.temporal.TemporalAdjusters;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.adt.payroll.model.LeaveBalance;
-import com.adt.payroll.repository.LeaveBalanceRepository;
-//import jakarta.transaction.Transactional;
-import com.adt.payroll.service.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.poi.ss.usermodel.Cell;
@@ -26,16 +26,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.adt.payroll.exception.NoDataFoundException;
+import com.adt.payroll.model.LeaveBalance;
 import com.adt.payroll.model.LeaveModel;
 import com.adt.payroll.model.TimeSheetModel;
 import com.adt.payroll.model.User;
+import com.adt.payroll.repository.LeaveBalanceRepository;
 import com.adt.payroll.repository.LeaveRepository;
 import com.adt.payroll.repository.TimeSheetRepo;
 import com.adt.payroll.repository.UserRepo;
 import com.adt.payroll.service.CommonEmailService;
-import org.springframework.transaction.annotation.Transactional;
+//import jakarta.transaction.Transactional;
+import com.adt.payroll.service.Util;
 
 @Component
 public class MonthlyScheduler {
@@ -56,6 +60,7 @@ public class MonthlyScheduler {
 
 	@Autowired
 	private CommonEmailService mailService;
+
 	@Autowired
 	private LeaveBalanceRepository leaveBalanceRepo;
 
@@ -73,7 +78,6 @@ public class MonthlyScheduler {
 			lm.setLeaveBalance(lm.getLeaveBalance() + 1);
 			leaveRepository.save(lm);
 		}
-
 	}
 
 //	@Scheduled(cron = "*/2 * * * * *") // for 2 seconds
@@ -135,13 +139,11 @@ public class MonthlyScheduler {
 			row.createCell(4).setCellValue(timeSheetModel.getDate() != null ? timeSheetModel.getDate() : "NULL");
 			row.createCell(5).setCellValue(timeSheetModel.getDay() != null ? timeSheetModel.getDay() : "NULL");
 		}
-
 		try (ByteArrayOutputStream fileOut = new ByteArrayOutputStream()) {
 			workbook.write(fileOut);
 			workbook.close();
 			return fileOut;
 		}
-
 	}
 
 	@Scheduled(cron = "0 0 8 * * MON")
@@ -187,7 +189,6 @@ public class MonthlyScheduler {
 		while (!workingDates.contains(startDate) && startDate.isBefore(endDate)) {
 			startDate = startDate.plusDays(1);
 		}
-
 		return new LocalDate[] { startDate, endDate };
 	}
 
@@ -255,7 +256,6 @@ public class MonthlyScheduler {
 				}
 			});
 		}
-
 		return absentDates;
 	}
 
@@ -294,39 +294,49 @@ public class MonthlyScheduler {
 
 		return absenceRecord;
 	}
-}
 
-//	@Scheduled(cron = "0 */1 * * * *")
-// @Scheduled(cron = "0 0 0 28-31 * ?") // Executes at midnight on the 28th to
-// 31st of every month
-//	@Transactional
-//	public String sendLeaveNotificationOnMonthlyBasis() {
-//		LocalDate currentDate = LocalDate.now();
-//		LocalDate lastDayOfMonth = currentDate.withDayOfMonth(currentDate.lengthOfMonth());
-//		// This block ensures the task runs only on the last day of the month
-//		if (!currentDate.isEqual(lastDayOfMonth)) {
-//			return "Not the last day of the month, task not executed.";
-//		}
-//		// Fetch all users
-//		List<User> users = userRepo.findAll();
-//		users.forEach(user -> {
-//			try {
-//				int employeeId = user.getId();
-//				Optional<LeaveBalance> leaveBalanceOpt = Optional.ofNullable(leaveBalanceRepo.findByEmpId(employeeId));
-//				LeaveBalance leaveBalance = leaveBalanceOpt.orElseGet(() -> {
-//					LeaveBalance newLeaveBalance = new LeaveBalance();
-//					newLeaveBalance.setEmpId(employeeId);
-//					newLeaveBalance.setLeaveBalance(1); // Initialize paid leave to 0
-//					return newLeaveBalance;
-//				});
-//				// Allocate 1 paid leave at the start of the month
-//				leaveBalance.setLeaveBalance(leaveBalance.getPaidLeave() + 1);
-//				// Save the updated leave balance
-//				leaveBalanceRepo.save(leaveBalance);
-//				log.info("Leave notification and balance updated successfully for employee: {} {}", user.getFirstName(), user.getLastName());
-//			} catch (Exception ex) {
-//				log.error("Error processing leave notification for employeeId: {}. Exception message: {}", user.getId(), ex.getMessage(), ex);
-//			}
-//		});
-//		return "Leave notifications and balances sent successfully for users.";
-//	}
+//	@Scheduled(cron = "0 * * * * *") // for every 1 min
+	@Scheduled(cron = "0 0 0 28-31 * ?") // Executes at midnight on the 28th to 31st of every month
+	@Transactional
+	public String sendLeaveNotificationOnMonthlyBasis() {
+		try {
+
+			LocalDate currentDate = LocalDate.now();
+			LocalDate lastDayOfMonth = currentDate.withDayOfMonth(currentDate.lengthOfMonth());
+			// Ensure this runs only on the last day of the month
+			if (!currentDate.isEqual(lastDayOfMonth)) {
+				return "Not the last day of the month, task not executed.";
+			}
+			// Fetch all active users
+			List<User> users = userRepo.findAllByIsActive(true);
+			users.forEach(user -> {
+				try {
+					Optional<LeaveBalance> leaveBalanceOpt = leaveBalanceRepo.findByEmpId(user.getId());
+
+					// Handle leave balance creation if not present
+					LeaveBalance leaveBalance = leaveBalanceOpt.orElseGet(() -> {
+						LeaveBalance newLeaveBalance = new LeaveBalance();
+						newLeaveBalance.setEmp_id(user.getId());
+						newLeaveBalance.setLeaveBalance(1); // Set initial balance
+						return newLeaveBalance;
+					});
+
+					leaveBalance.setLeaveBalance(leaveBalance.getLeaveBalance() + 1);
+					leaveBalance.setUpdatedWhen(Timestamp.valueOf(LocalDateTime.now()));
+
+					leaveBalanceRepo.save(leaveBalance);
+
+					log.info("Leave notification and balance updated successfully for employee: {} {}",
+							user.getFirstName(), user.getLastName());
+				} catch (Exception ex) {
+					log.error("Error processing leave notification for employeeId: {}. Exception message: {}",
+							user.getId(), ex.getMessage(), ex);
+				}
+			});
+		} catch (Exception ex) {
+			log.error("Error processing while executing sendLeaveNotificationOnMonthlyBasis ", ex.getMessage());
+		}
+		return "Leave notifications and balances set successfully for users.";
+	}
+
+}

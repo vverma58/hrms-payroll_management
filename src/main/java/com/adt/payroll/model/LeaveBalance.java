@@ -1,11 +1,15 @@
 package com.adt.payroll.model;
 
+import java.sql.Timestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import lombok.Data;
 
@@ -15,27 +19,23 @@ import lombok.Data;
 public class LeaveBalance {
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	@Column(name = "leave_bal_id")
-	private int leaveBalId;
-
-	@Column(name = "emp_id")
-	private int empId;
+	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "leave_balance_seq")
+	@SequenceGenerator(name = "leave_balance_seq", allocationSize = 1, schema = "payroll_schema")
+	private int leaveBalanceId;
 
 	@Column(name = "name")
 	private String name;
 
 	@Column(name = "leave_balance")
 	private int leaveBalance;
-	
-//	@Column(name = "half_day")
-//	private Integer  halfDay;
-//
-//	@Column(name = "paid_leave")
-//	private Integer  paidLeave=0;
-//
-//	@Column(name = "unpaid_leave")
-//	private Integer  unpaidLeave=0;
 
-	
+	@OneToOne
+	@JoinColumn(name = "emp_id", referencedColumnName = "EMPLOYEE_ID", nullable = true, insertable = false, updatable = false)
+	private User employee;
+	private Integer emp_id;
+
+	@Column(name = "updated_when")
+	private Timestamp updatedWhen;
+
 }

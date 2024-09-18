@@ -223,7 +223,7 @@ public class PayRollServiceImpl implements PayRollService {
 		float leavePerDay = leaves * amountPerDay;
 		float netAmount = (yourWorkingDays * amountPerDay);
 		netAmount += adhoc;
-		paySlip = new PaySlip(empId, name, empDetails.get().getDesignation(), dtf.format(currentdate),
+		paySlip = new PaySlip(String.valueOf(empId), name, empDetails.get().getDesignation(), dtf.format(currentdate),
 				empDetails.get().getBankName(), empDetails.get().getAccountNumber(),
 				firstDayMonth + " - " + lastDayOfMonth, yourWorkingDays, totalWorkingDays, leaves, leavePerDay,
 				grossSalary, netAmount, adhoc);
@@ -1006,15 +1006,23 @@ public class PayRollServiceImpl implements PayRollService {
 									}
 									double empGrossSalaryAmount = grossAmount;
 
-									double totalLeaveDeduction = calculateAndUpdateEmployeeTotalLeaves(
-											salaryDetails.get().getEmpId(), empGrossSalaryAmount,
-											paySlipDetails.get(Util.MONTH), paySlipDetails.get(Util.YEAR),
-											Integer.parseInt(paySlipDetails.get(Util.WORKING_DAY)), paySlip, name);
+									// if SpecialCase is TRUE
+									double totalLeaveDeduction = 0;
 
-									if (totalLeaveDeduction == -1) {
-										log.info("Employees leave balance record is not exist. please enter the data.",
-												salaryDetails.get().getEmpId());
-										continue;
+									// if SpecialCase is FALSE then it will work
+									if (!salaryDetails.get().isSpecialCase()) {
+
+										totalLeaveDeduction = calculateAndUpdateEmployeeTotalLeaves(
+												salaryDetails.get().getEmpId(), empGrossSalaryAmount,
+												paySlipDetails.get(Util.MONTH), paySlipDetails.get(Util.YEAR),
+												Integer.parseInt(paySlipDetails.get(Util.WORKING_DAY)), paySlip, name);
+
+										if (totalLeaveDeduction == -1) {
+											log.info(
+													"Employees leave balance record is not exist. please enter the data.",
+													salaryDetails.get().getEmpId());
+											continue;
+										}
 									}
 
 									Double grossEarning = empGrossSalaryAmount;
@@ -1226,7 +1234,7 @@ public class PayRollServiceImpl implements PayRollService {
 
 			int empLeave = officeTotalWorkingDay - empTotalWorkingDay;
 
-			Optional<LeaveBalance> leaveBalanceOptional = leaveBalanceRepo.findByEmployeeId(empId);
+			Optional<LeaveBalance> leaveBalanceOptional = leaveBalanceRepo.findByEmpId(Integer.valueOf(empId));
 			if (!leaveBalanceOptional.isPresent()) {
 				mailService.sendEmail(name, "Leave balance is not Exist for the employee.");
 				return -1;
@@ -1338,49 +1346,16 @@ public class PayRollServiceImpl implements PayRollService {
 	@Override
 	public ResponseEntity<Object> validateAmount(Integer empid, SalaryDTO dto) throws ParseException, IOException {
 		log.info("Validate entered data for employee {}", empid);
+
 		MonthlySalaryDetails regeneratedSalary = new MonthlySalaryDetails();
 
 		SalaryDetails salaryDetails = salaryDetailsRepo.findByEmployeeId(empid).get();
 		double grossAmount = salaryDetails.getGrossSalary();
 
-		if (salaryDetails.getBasic() < dto.getBasic())
-			return new ResponseEntity<>(
-					Util.Basic + Util.PAYSLIP_VALIDATION_MSG.replace("[value]", salaryDetails.getBasic().toString())
-							+ dto.getBasic(),
-					HttpStatus.NOT_ACCEPTABLE);
+		int empTotalWorkingDay = timeSheetRepo.findEmpTotalWorkingDayCount(empid, dto.getMonth().toUpperCase(),
+				dto.getYear());
 
-		if (salaryDetails.getHouseRentAllowance() < dto.getHra())
-			return new ResponseEntity<>(Util.Hra
-					+ Util.PAYSLIP_VALIDATION_MSG.replace("[value]", salaryDetails.getHouseRentAllowance().toString())
-					+ dto.getHra(), HttpStatus.OK);
-
-		if (salaryDetails.getEmployeeESICAmount() < dto.getEmployeeEsic())
-			return new ResponseEntity<>(Util.Esic
-					+ Util.PAYSLIP_VALIDATION_MSG.replace("[value]", salaryDetails.getEmployeeESICAmount().toString())
-					+ dto.getEmployeeEsic(), HttpStatus.OK);
-
-		if (salaryDetails.getEmployerESICAmount() < dto.getEmployerEsic())
-			return new ResponseEntity<>(Util.Esic
-					+ Util.PAYSLIP_VALIDATION_MSG.replace("[value]", salaryDetails.getEmployerESICAmount().toString())
-					+ dto.getEmployerEsic(), HttpStatus.OK);
-
-		if (salaryDetails.getEmployerPFAmount() < dto.getEmployerPf())
-			return new ResponseEntity<>(
-					Util.PF + Util.PAYSLIP_VALIDATION_MSG.replace("[value]",
-							salaryDetails.getEmployerPFAmount().toString()) + dto.getEmployerPf(),
-					HttpStatus.BAD_REQUEST);
-
-		if (salaryDetails.getEmployeePFAmount() < dto.getEmployeePf())
-			return new ResponseEntity<>(Util.PF
-					+ Util.PAYSLIP_VALIDATION_MSG.replace("[value]", salaryDetails.getEmployeePFAmount().toString())
-					+ dto.getEmployeePf(), HttpStatus.OK);
-
-//		if( salaryDetails.getBonus() !=null && salaryDetails.getBonus() < dto.getBonus())
-//			return new ResponseEntity<>(Util.BONUS+Util.PAYSLIP_VALIDATION_MSG.replace("[value]",salaryDetails.getBonus().toString())+salaryDetails.getBonus(), HttpStatus.OK);
-
-		int empTotalWorkingDay = timeSheetRepo.findEmpTotalWorkingDayCount(empid, dto.getMonth(), dto.getYear());
-
-		int empHalfDay = timeSheetRepo.findEmpTotalHalfDayCount(empid, dto.getMonth(), dto.getYear());
+		int empHalfDay = timeSheetRepo.findEmpTotalHalfDayCount(empid, dto.getMonth().toUpperCase(), dto.getYear());
 		if (empHalfDay > 0) {
 			empTotalWorkingDay = empTotalWorkingDay + empHalfDay;
 		}
@@ -1388,7 +1363,7 @@ public class PayRollServiceImpl implements PayRollService {
 		double amountPerDay = Math.round(grossAmount / officeTotalWorkingDay);
 		int empLeave = officeTotalWorkingDay - empTotalWorkingDay;
 		double absentDeductionAmt = 0;
-		Optional<LeaveBalance> leaveBalanceOptional = leaveBalanceRepo.findByEmployeeId(empid);
+		Optional<LeaveBalance> leaveBalanceOptional = leaveBalanceRepo.findByEmpId(Integer.valueOf(empid));
 
 		int leaveBal = leaveBalanceOptional.get().getLeaveBalance();
 		int empRemainingLeave = 0;
@@ -1420,8 +1395,6 @@ public class PayRollServiceImpl implements PayRollService {
 			netSalary = 0;
 		}
 		Month month = Month.valueOf(dto.getMonth().toUpperCase());
-		// ExpenseItems items = expenseManagementRepo.findExpenseDetailsByEmpId(empid,
-		// month.getValue(), Integer.valueOf(dto.getYear()));
 		Optional<ExpenseItems> items = expenseManagementRepo.findExpenseDetailsByEmpId(empid, month.getValue(),
 				Integer.valueOf(dto.getYear()));
 		if (items.isPresent()) {
@@ -1437,11 +1410,9 @@ public class PayRollServiceImpl implements PayRollService {
 		}
 
 		if (dto.getBonus() != 0) {
-			// grossAmount += dto.getBonus();
 			netSalary += dto.getBonus();
 		}
 		if (dto.getAdhoc() != 0) {
-			// grossAmount += dto.getBonus();
 			ExpenseItems adhoc = new ExpenseItems();
 			Optional<User> user = userRepo.findByEmployeeId(dto.getEmpId());
 			adhoc.setPaidBy(user.get().getFirstName() + " " + user.get().getLastName());
@@ -1459,6 +1430,7 @@ public class PayRollServiceImpl implements PayRollService {
 		}
 
 		netSalary = Math.round(netSalary);
+
 		regeneratedSalary.setBasic(dto.getBasic());
 		regeneratedSalary.setHouseRentAllowance(dto.getHra());
 		regeneratedSalary.setAbsentDeduction(absentDeductionAmt);
@@ -1472,7 +1444,7 @@ public class PayRollServiceImpl implements PayRollService {
 		regeneratedSalary.setEmpId(empid);
 		regeneratedSalary.setGrossDeduction(grossDeduction);
 		regeneratedSalary.setMedicalInsurance(dto.getMedicalAmount() != null ? dto.getMedicalAmount() : 0.0);
-		regeneratedSalary.setMonth(dto.getMonth());
+		regeneratedSalary.setMonth(dto.getMonth().toUpperCase());
 		regeneratedSalary.setNetSalary(netSalary);
 		regeneratedSalary.setComment(dto.getComment());
 		regeneratedSalary.setGrossSalary(salaryDetails.getGrossSalary());
@@ -1489,83 +1461,107 @@ public class PayRollServiceImpl implements PayRollService {
 	public String regenerateEmployeePayslip(Integer empid, MonthlySalaryDetails dto)
 			throws DocumentException, IOException {
 		try {
+			Optional<User> user = Optional.ofNullable(
+					userRepo.findById(empid).orElseThrow(() -> new NoDataFoundException("Employee not found :")));
+			String name = user.get().getFirstName() + " " + user.get().getLastName();
+			String adtId = user.get().getAdtId() != null ? user.get().getAdtId() : "";
+
+			Map<String, String> paySlipDetails = util.getWorkingDaysAndMonth();
+			DateTimeZone istTimeZone = DateTimeZone.forID("Asia/Kolkata");
+			DateTime current = new DateTime(istTimeZone);
+
 			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 			LocalDate date = LocalDate.parse(dto.getCreditedDate(), formatter);
 			Optional<EmpPayrollDetails> empPayroll = Optional.ofNullable(empPayrollDetailsRepo.findByEmployeeId(empid)
-					.orElseThrow(() -> new NoDataFoundException("employee payroll details not found :" + empid)));
+					.orElseThrow(() -> new NoDataFoundException("Payroll details not found for empName:" + name)));
 
-			MonthlySalaryDetails existingSalary = monthlySalaryDetailsRepo.findSalaryByEmpidMonth(empid, dto.getMonth(),
-					date.getYear());
+			MonthlySalaryDetails existingSalary = monthlySalaryDetailsRepo.findSalaryByEmpidMonth(empid,
+					dto.getMonth().toUpperCase(), date.getYear());
 			if (existingSalary != null) {
 				existingSalary.setActive(false);
 				existingSalary.setComment(dto.getComment());
 				monthlySalaryDetailsRepo.save(existingSalary);
 			}
 
-			Optional<User> user = Optional.ofNullable(userRepo.findById(empid)
-					.orElseThrow(() -> new NoDataFoundException("employee not found :" + empid)));
-			String name = user.get().getFirstName() + " " + user.get().getLastName();
-			// MonthlySalaryDetails regeneratedSalary= new MonthlySalaryDetails();
-			// regeneratedSalary.setBasic(dto.getBasic());
-			// regeneratedSalary.setHouseRentAllowance(dto.getHouseRentAllowance());
-			// regeneratedSalary.setAbsentDeduction(dto.getAbsentDeduction());
-			// regeneratedSalary.setAdjustment(dto.getAdjustment());
-			// regeneratedSalary.setAdhoc(dto.getAdhoc());
-			// regeneratedSalary.setActive(true);
-			// regeneratedSalary.setEmployeeESICAmount(dto.getEmployeeESICAmount());
-			// regeneratedSalary.setEmployerESICAmount(dto.getEmployerESICAmount());
-			// regeneratedSalary.setEmployeePFAmount(dto.getEmployeePFAmount());
-			// regeneratedSalary.setEmployerPFAmount(dto.getEmployerPFAmount());
-			// regeneratedSalary.setBonus(dto.getBonus());
-			// regeneratedSalary.setEmpId(empid);
-			// regeneratedSalary.setGrossDeduction(dto.getGrossDeduction());
-			// regeneratedSalary.setMedicalInsurance(dto.getMedicalInsurance());
-			// regeneratedSalary.setMonth(dto.getMonth());
-			// regeneratedSalary.setNetSalary(dto.getNetSalary());
-			// SimpleDateFormat f = new SimpleDateFormat("dd-MM-yyyy");
-			// Calendar cal = Calendar.getInstance();
-			// String crediteddate = f.format(cal.getTime());
-			// regeneratedSalary.setCreditedDate(crediteddate);
-			// DateTimeZone istTimeZone = DateTimeZone.forID("Asia/Kolkata");
-			// DateTime current = new DateTime(istTimeZone);
-			//
-			// regeneratedSalary.setUpdatedWhen(new Timestamp(current.getMillis()));
-			// regeneratedSalary.setAbsentDays(existingSalary.getAbsentDays());
-			// regeneratedSalary.setHalfDay(existingSalary.getHalfDay());
-			// regeneratedSalary.setPaidLeave(existingSalary.getPaidLeave());
-			// regeneratedSalary.setUnpaidLeave(existingSalary.getUnpaidLeave());
-			// regeneratedSalary.setTotalWorkingDays(existingSalary.getTotalWorkingDays());
+			Optional<SalaryDetails> salaryDetails = Optional.ofNullable(salaryDetailsRepo.findByEmployeeId(empid)
+					.orElseThrow(() -> new NoDataFoundException("Salary details not found for empName:" + name)));
 
-			DateTimeZone istTimeZone = DateTimeZone.forID("Asia/Kolkata");
-			DateTime current = new DateTime(istTimeZone);
+			dto.setBasic(dto.getBasic() != null ? dto.getBasic() : 0.0);
+			dto.setMonth(dto.getMonth().toUpperCase());
+			dto.setEmployeeESICAmount(dto.getEmployeeESICAmount() != null ? dto.getEmployeeESICAmount() : 0.0);
+			dto.setEmployerESICAmount(dto.getEmployerESICAmount() != null ? dto.getEmployerESICAmount() : 0.0);
+			dto.setEmployeePFAmount(dto.getEmployeePFAmount() != null ? dto.getEmployeePFAmount() : 0.0);
+			dto.setEmployerPFAmount(dto.getEmployerPFAmount() != null ? dto.getEmployerPFAmount() : 0.0);
+			dto.setMedicalInsurance(dto.getMedicalInsurance() != null ? dto.getMedicalInsurance() : 0.0);
+			dto.setTds(dto.getTds() != null ? dto.getTds() : 0.0);
+			dto.setGrossSalary(dto.getGrossSalary() != null ? dto.getGrossSalary() : 0.0);
+			dto.setNetSalary(dto.getNetSalary() != null ? dto.getNetSalary() : 0.0);
+			dto.setAdhoc(dto.getAdhoc() != null ? dto.getAdhoc() : 0.0);
+			dto.setAdjustment(dto.getAdjustment() != null ? dto.getAdjustment() : 0.0);
+			dto.setHouseRentAllowance(dto.getHouseRentAllowance() != null ? dto.getHouseRentAllowance() : 0.0);
+			dto.setDearnessAllowance(dto.getDearnessAllowance() != null ? dto.getDearnessAllowance() : 0.0);
+			dto.setGrossDeduction(dto.getGrossDeduction() != null ? dto.getGrossDeduction() : 0.0);
+			dto.setAbsentDeduction(dto.getAbsentDeduction() != null ? dto.getAbsentDeduction() : 0.0);
+			dto.setPresentDays(dto.getPresentDays() != null ? dto.getPresentDays() : 0);
+			dto.setAbsentDays(dto.getAbsentDays() != null ? dto.getAbsentDays() : 0);
+			dto.setTotalWorkingDays(dto.getTotalWorkingDays() != null ? dto.getTotalWorkingDays() : 0);
+			dto.setHalfDay(dto.getHalfDay() != null ? dto.getHalfDay() : 0);
+			dto.setPaidLeave(dto.getPaidLeave() != null ? dto.getPaidLeave() : 0);
+			dto.setUnpaidLeave(dto.getUnpaidLeave() != null ? dto.getUnpaidLeave() : 0);
+			dto.setBonus(dto.getBonus() != null ? dto.getBonus() : 0.0);
+			dto.setComment(dto.getComment() != null ? dto.getComment() : "");
+			dto.setCreditedDate(dto.getCreditedDate() != null ? dto.getCreditedDate() : "");
+			dto.setEmpId(dto.getEmpId() != 0 ? dto.getEmpId() : 0);
+			dto.setUpdatedWhen(
+					dto.getUpdatedWhen() != null ? dto.getUpdatedWhen() : new Timestamp(System.currentTimeMillis()));
+
 			dto.setActive(true);
 			dto.setUpdatedWhen(new Timestamp(current.getMillis()));
-			monthlySalaryDetailsRepo.save(dto);
+			MonthlySalaryDetails savedMonthlySalary = monthlySalaryDetailsRepo.save(dto);
 			log.info("Monthly salary saved.");
-			double amountPerDay = Math.round(dto.getGrossSalary() / dto.getTotalWorkingDays());
-			ByteArrayOutputStream byteArrayOutputStream = DetailedSalarySlip.builder().build()
-					.generateDetailedSalarySlipPDF(empid.toString(), name,
-							dto.getTotalWorkingDays() != null ? dto.getTotalWorkingDays().intValue() : 0,
-							dto.getPresentDays() != null ? dto.getPresentDays().intValue() : 0,
-							dto.getAbsentDays() != null ? dto.getAbsentDays().intValue() : 0,
-							dto.getHalfDay() != null ? dto.getHalfDay().intValue() : 0,
-							empPayroll.get().getSalary().toString(), dto.getPaidLeave().toString(), date.toString(),
-							empPayroll.get().getBankName(), empPayroll.get().getAccountNumber(),
-							empPayroll.get().getDesignation(), empPayroll.get().getJoinDate(),
-							dto.getAdhoc() != null ? dto.getAdhoc().intValue() : 0, "payPeriod",
-							dto.getEmployeeESICAmount(), dto.getEmployeePFAmount().floatValue(), dto.getNetSalary(),
-							dto.getGrossSalary(), dto.getBasic(),
-							dto.getHouseRentAllowance() != null ? dto.getHouseRentAllowance() : 0.0, amountPerDay,
-							dto.getUnpaidLeave(), dto.getAdjustment() != null ? dto.getAdjustment().intValue() : 0,
-							dto.getMedicalInsurance() != null ? dto.getMedicalInsurance().intValue() : 0,
-							dto.getTds() != null ? dto.getTds().intValue() : 0);
+
+			PaySlip paySlip = new PaySlip();
+			paySlip.setAccountNumber(empPayroll.get().getAccountNumber());
+			paySlip.setAdhoc(savedMonthlySalary.getAdhoc());
+			paySlip.setAdjustment(savedMonthlySalary.getAdjustment());
+			paySlip.setAmountDeductedForLeaves(savedMonthlySalary.getAbsentDeduction().floatValue());
+			paySlip.setBankName(empPayroll.get().getBankName());
+			paySlip.setEmpId(adtId);
+			paySlip.setGrossDeduction(savedMonthlySalary.getGrossDeduction());
+			paySlip.setGrossSalary(savedMonthlySalary.getGrossSalary().floatValue());
+			paySlip.setHalfday(savedMonthlySalary.getHalfDay());
+			paySlip.setJobTitle(empPayroll.get().getDesignation());
+			paySlip.setLeaveDeductionAmount(savedMonthlySalary.getAbsentDeduction());
+			paySlip.setName(name);
+			paySlip.setNetAmountPayable(savedMonthlySalary.getNetSalary().floatValue());
+			paySlip.setNetSalaryAmount(savedMonthlySalary.getNetSalary());
+			paySlip.setNumberOfLeavesTaken(savedMonthlySalary.getAbsentDays());
+			paySlip.setPaidLeave(savedMonthlySalary.getPaidLeave());
+			paySlip.setPayPeriods(paySlipDetails.get(Util.PAY_PERIOD));
+			paySlip.setPresentDate(null);
+			paySlip.setSalary(empPayroll.get().getSalary());
+			paySlip.setTotalWorkingDays(savedMonthlySalary.getTotalWorkingDays());
+			paySlip.setUnpaidLeave(savedMonthlySalary.getUnpaidLeave());
+			paySlip.setYouWorkingDays(savedMonthlySalary.getPresentDays());
+
+			ByteArrayOutputStream baos = DetailedSalarySlip.builder().build().generateDetailedSalarySlipPDF(adtId,
+					salaryDetails.get(), paySlip, empPayroll.get().getJoinDate(), paySlipDetails.get(Util.MONTH),
+					savedMonthlySalary.getAdjustment());
 			log.info("Payslip generated successfully ");
-			mailService.sendEmail(byteArrayOutputStream, name, user.get().getEmail(), dto.getMonth() + " " + "year");
+			// mail send--------
+			mailService.sendEmail(baos, name, user.get().getEmail(),
+					paySlipDetails.get(Util.MONTH) + " " + paySlipDetails.get(Util.YEAR));
 			log.info("Mail send successfully this email id=" + user.get().getEmail());
+
 			return "Mail send successfully";
+
+		} catch (NoDataFoundException e) {
+			log.error("Error occurred: ", e.getMessage());
+			return e.getMessage();
+
 		} catch (Exception e) {
 			log.info("Error while regenerating payslip ", e.getMessage());
-			return null;
+			return "Internal server error occurred";
 		}
 	}
 }
