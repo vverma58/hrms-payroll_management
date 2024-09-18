@@ -145,7 +145,7 @@ public class TimeSheetController {
 		return new ResponseEntity<>(timeSheetService.checkStatus(empId), HttpStatus.OK);
 	}
 
-	//@PreAuthorize("@auth.allow('CHECK_PRIORTIME_STATUS',T(java.util.Map).of('currentUser', #empId))")
+	@PreAuthorize("@auth.allow('CHECK_PRIORTIME_STATUS',T(java.util.Map).of('currentUser', #empId))")
 	@GetMapping("/priorTimeAdjustment/{empId}")
 	public ResponseEntity<List<ResponseModel>> priorTimeAdjustment(@PathVariable int empId,
 			HttpServletRequest request) {
@@ -185,7 +185,7 @@ public class TimeSheetController {
 		return new ResponseEntity<>(timeSheetService.allEmpAttendence(fromDate, toDate), HttpStatus.OK);
 	}
 
-//	@PreAuthorize("@auth.allow('PRIORTIME_ADJUSTMENT_REQUEST')")
+	@PreAuthorize("@auth.allow('PRIORTIME_ADJUSTMENT_REQUEST')")
 	@PostMapping("/updatePriorTime")
 	public ResponseEntity<ApiResponse> updatePriorTimeByDate(@RequestParam("Latitude") double latitude,
 			@RequestParam("Longitude") double longitude,
@@ -213,7 +213,7 @@ public class TimeSheetController {
 						"Missing user details in database"));
 	}
 
-	//@PreAuthorize("@auth.allow('ACCEPT_PRIORTIME_REQUEST')")
+	@PreAuthorize("@auth.allow('ACCEPT_PRIORTIME_REQUEST')")
 	@GetMapping("/updatePriorTime/Accepted/{priortimeId}")
 	public ResponseEntity<?> updatePriorTimeAccepted(@PathVariable(name = "priortimeId") int priortimeId,
 			HttpServletRequest request) throws ParseException, TemplateNotFoundException,
