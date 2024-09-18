@@ -12,21 +12,22 @@ import jakarta.transaction.Transactional;
 
 public interface LeaveBalanceRepository extends JpaRepository<LeaveBalance, Integer> {
 
-	LeaveBalance findByEmpId(int id);
-
-	@Query(value = "select * from payroll_schema.leave_balance where emp_id=?1", nativeQuery = true)
-	Optional<LeaveBalance> findByEmployeeId(int empId);
-
-	@Transactional
-	@Modifying
-	@Query(value = "UPDATE payroll_schema.leave_balance SET leave_balance=?2, paid_leave=?3, unpaid_leave=?4, half_day=?5 WHERE emp_id =?1", nativeQuery = true)
-	public void updateAllLeavesByEmpId( int empId,int leaveBal, int empPaidLeave, int empUnpaidLeave, int halfday);
-
 	@Transactional
 	@Modifying
 	@Query(value = "UPDATE payroll_schema.leave_balance SET leave_balance=?2 WHERE emp_id =?1", nativeQuery = true)
-	public void updateLeaveBalByEmpId( int empId,int leaveBal);
-//UPDATE payroll_schema.leave_balance SET leave_balance=0, paid_leave=1, unpaid_leave=2 WHERE emp_id ='37'
-	// half_day=1,
+	public void updateLeaveBalByEmpId(Integer empId, int leaveBal);
+
+	@Query(value = "select * from payroll_schema.leave_balance where emp_id=?1", nativeQuery = true)
+	Optional<LeaveBalance> findByEmpId(Integer empId);
+
+//	LeaveBalance findByEmpId(int id);
+
+//	@Query(value = "select * from payroll_schema.leave_balance where emp_id=?1", nativeQuery = true)
+//	Optional<LeaveBalance> findByEmployeeId(int empId);
+
+//	@Transactional
+//	@Modifying
+//	@Query(value = "UPDATE payroll_schema.leave_balance SET leave_balance=?2, paid_leave=?3, unpaid_leave=?4, half_day=?5 WHERE emp_id =?1", nativeQuery = true)
+//	public void updateAllLeavesByEmpId(int empId, int leaveBal, int empPaidLeave, int empUnpaidLeave, int halfday);
 
 }

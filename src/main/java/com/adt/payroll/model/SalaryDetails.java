@@ -226,8 +226,12 @@ public class SalaryDetails {
 		this.empId = empId;
 	}
 
-	public boolean isSpecialCase() { return specialCase;  }
+	public boolean isSpecialCase() {
+		return specialCase;
+	}
 
-	public void setSpecialCase(boolean specialCase) { this.specialCase = specialCase;  }
+	public void setSpecialCase(boolean specialCase) {
+		this.specialCase = specialCase;
+	}
 
 }
