@@ -241,8 +241,8 @@ public class TimeSheetController {
 		if (priortime.get().getStatus().equalsIgnoreCase("Accepted")) {
 			status = "approved";
 		}
-		model.put("Message", " priortime request has been already " + status + " by");
-		model.put("Email", priortime.get().getUpdatedBy());
+		model.put("Message", " priortime request has been already " + status + " by "+priortime.get().getUpdatedBy());
+		//model.put("Email", priortime.get().getUpdatedBy());
 		return new ResponseEntity<>(FreeMarkerTemplateUtils.processTemplateIntoString(template, model), HttpStatus.OK);
 
 	}
