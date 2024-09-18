@@ -184,8 +184,7 @@ public class CommonEmailServiceImpl implements CommonEmailService {
     }
 
     @Override
-    public void sendAccountChangeEmail(OnPriorTimeAcceptOrRejectEvent event, String action, String actionStatus,
-                                       String to) throws IOException, TemplateException, MessagingException {
+    public void sendAccountChangeEmail(OnPriorTimeAcceptOrRejectEvent event, String action, String actionStatus, String to) throws IOException, TemplateException, MessagingException {
         Mail mail = new Mail();
         mail.setSubject("Timesheet Saved");
         mail.setTo(to);
@@ -193,20 +192,24 @@ public class CommonEmailServiceImpl implements CommonEmailService {
         mail.getModel().put("userName", to);
         mail.getModel().put("action", action);
         mail.getModel().put("actionStatus", actionStatus);
-        mail.getModel().put("CheckIn", event.getPriortime().get().getCheckIn());
-        mail.getModel().put("CheckOut", event.getPriortime().get().getCheckOut());
-        mail.getModel().put("Date", event.getPriortime().get().getDate());
-        mail.getModel().put("Email", event.getPriortime().get().getEmail());
-        mail.getModel().put("Month", event.getPriortime().get().getMonth());
-        mail.getModel().put("Year", event.getPriortime().get().getYear());
-        mail.getModel().put("WorkingHour", event.getPriortime().get().getWorkingHour());
-
+        // Check if priortime is present
+        if (event.getPriortime().isPresent()) {
+            var priorTime = event.getPriortime().get();
+            mail.getModel().put("CheckIn", priorTime.getCheckIn());
+            mail.getModel().put("CheckOut", priorTime.getCheckOut());
+            mail.getModel().put("Date", priorTime.getDate());
+            mail.getModel().put("Email", priorTime.getEmail()); // This should be the actual email
+            mail.getModel().put("Month", priorTime.getMonth());
+            mail.getModel().put("Year", priorTime.getYear());
+            mail.getModel().put("WorkingHour", priorTime.getWorkingHour());
+        } else {
+            mail.getModel().put("Email", "No email provided"); // Or handle accordingly
+        }
         templateConfiguration.setClassForTemplateLoading(getClass(), basePackagePath);
         Template template = templateConfiguration.getTemplate("account-activity-change.ftl");
         String mailContent = FreeMarkerTemplateUtils.processTemplateIntoString(template, mail.getModel());
         mail.setContent(mailContent);
         send(mail);
-
     }
 
     @Override

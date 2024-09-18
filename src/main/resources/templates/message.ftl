@@ -28,7 +28,7 @@
               
           }
           
-           .email.color {
+           .emailcolor {
             color: #0000FF;
            
           }
@@ -101,7 +101,7 @@
         <p>
          <h1>
             <span id="Message">${Message}</span>
-            <span class="email color" id="Email">${Email}</span>
+            <span class="emailcolor" id="Email">${Email}</span>
             </h1> 
         </p>
     </div>
