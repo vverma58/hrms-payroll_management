@@ -2,7 +2,7 @@
 <html>
 <head>
    <style>
-   
+
     .centered-div {
            width: 50%;
             height: 50%;
@@ -10,7 +10,7 @@
             text-align: center;
             background-color: #f0f0f0;
         }
-   
+
           body {
               font-family: Arial, sans-serif;
               color: #333;
@@ -25,12 +25,12 @@
               background-color: #f5f5f5;
               border-radius: 5px;
               align-items : center;
-              
+
           }
-          
-           .emailcolor {
+
+           .email.color {
             color: #0000FF;
-           
+
           }
 
           h1 {
@@ -101,8 +101,7 @@
         <p>
          <h1>
             <span id="Message">${Message}</span>
-
-            </h1> 
+         </h1>
         </p>
     </div>
 </body>

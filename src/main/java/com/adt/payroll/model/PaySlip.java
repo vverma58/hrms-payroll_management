@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PaySlip {
 
-	private Integer empId;
+	private String empId;
 	private String Name;
 	private String jobTitle;
 	private String presentDate;
@@ -32,7 +32,7 @@ public class PaySlip {
 	private double salary;
 	private double adjustment;
 
-	public PaySlip(Integer empId, String name, String jobTitle, String presentDate, String bankName,
+	public PaySlip(String empId, String name, String jobTitle, String presentDate, String bankName,
 			String accountNumber, String payPeriods, Integer youWorkingDays, Integer totalWorkingDays,
 			Integer numberOfLeavesTaken, Float amountDeductedForLeaves, Float grossSalary, Float netAmountPayable,
 			Integer adhoc) {

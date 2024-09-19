@@ -14,6 +14,7 @@ import com.adt.payroll.model.PaySlip;
 import com.itextpdf.text.DocumentException;
 
 public interface PayRollService {
+
 	public PaySlip createPaySlip(int empId, String month, String year) throws ParseException, IOException;
 
 	public String generatePaySlip(MultipartFile file, String email) throws IOException, ParseException;
@@ -25,12 +26,14 @@ public interface PayRollService {
 
 	String updateNetAmountInExcel(MultipartFile file) throws IOException;
 
-	public String generatePaySlipForAllEmployees(String emailInput, boolean isDBSelected) throws ParseException, IOException;
+	public String generatePaySlipForAllEmployees(String emailInput, boolean isDBSelected)
+			throws ParseException, IOException;
 
 	public SalaryDetailsDTO getEmployeePayrollSalaryDetailsByEmpId(Integer empId);
-	
+
 	public ResponseEntity<Object> validateAmount(Integer empid, SalaryDTO dto) throws ParseException, IOException;
-	
-	public String regenerateEmployeePayslip(Integer empid, MonthlySalaryDetails dto) throws DocumentException, IOException;
+
+	public String regenerateEmployeePayslip(Integer empid, MonthlySalaryDetails dto)
+			throws DocumentException, IOException;
 
 }

@@ -13,6 +13,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import com.adt.payroll.model.Holiday;
 import com.adt.payroll.repository.HolidayRepo;
@@ -192,7 +193,7 @@ public class Util {
 		}
 		String year = "" + currentYear;
 		String month = Month.of(monthd).name();
-		List<String> holidays = Arrays.asList(holiday);
+		//List<String> holidays = Arrays.asList(holiday);
 		List<String> lists = new ArrayList<>();
 		SimpleDateFormat inputFormat = new SimpleDateFormat("MMMM");
 		SimpleDateFormat outputFormat = new SimpleDateFormat("MM");
@@ -223,7 +224,13 @@ public class Util {
 			start.add(Calendar.DATE, 1);
 		}
 
-		lists.removeAll(holidays);
+		List<Holiday> holidays = holidayRepo.findHolidaysByMonth(month);
+
+		List<String> holidayDates = holidays.stream()
+				.map(holiday -> holiday.getDate().format(DateTimeFormatter.ISO_LOCAL_DATE))
+				.collect(Collectors.toList());
+
+		lists.removeAll(holidayDates);
 		workDays = lists.size();
 		workDays = workDays - Util.SaturdyaValue;
 		return workDays;
@@ -258,7 +265,7 @@ public class Util {
 		}
 		String year = "" + currentYear;
 		String month = Month.of(monthd).name();
-		List<String> holidays = Arrays.asList(holiday);
+		//List<String> holidays = Arrays.asList(holiday);
 		List<String> lists = new ArrayList<>();
 		SimpleDateFormat inputFormat = new SimpleDateFormat("MMMM");
 		SimpleDateFormat outputFormat = new SimpleDateFormat("MM");
@@ -289,7 +296,14 @@ public class Util {
 			start.add(Calendar.DATE, 1);
 		}
 
-		lists.removeAll(holidays);
+		List<Holiday> holidays = holidayRepo.findHolidaysByMonth(month);
+
+		// Convert List<Holiday> to List<String>
+		List<String> holidayDates = holidays.stream()
+				.map(holiday -> holiday.getDate().format(DateTimeFormatter.ISO_LOCAL_DATE))
+				.collect(Collectors.toList());
+
+		lists.removeAll(holidayDates);
 		workDays = lists.size();
 		workDays = workDays - Util.SaturdyaValue;
 		paySlipDetails.put(WORKING_DAY, String.valueOf(workDays));

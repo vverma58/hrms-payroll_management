@@ -2,20 +2,20 @@ package com.adt.payroll.scheduler;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.time.format.TextStyle;
 import java.time.temporal.TemporalAdjusters;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.adt.payroll.model.LeaveBalance;
-import com.adt.payroll.repository.LeaveBalanceRepository;
-//import jakarta.transaction.Transactional;
-import com.adt.payroll.service.Util;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.poi.ss.usermodel.Cell;
@@ -26,16 +26,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.adt.payroll.exception.NoDataFoundException;
+import com.adt.payroll.model.LeaveBalance;
 import com.adt.payroll.model.LeaveModel;
 import com.adt.payroll.model.TimeSheetModel;
 import com.adt.payroll.model.User;
+import com.adt.payroll.repository.LeaveBalanceRepository;
 import com.adt.payroll.repository.LeaveRepository;
 import com.adt.payroll.repository.TimeSheetRepo;
 import com.adt.payroll.repository.UserRepo;
 import com.adt.payroll.service.CommonEmailService;
-import org.springframework.transaction.annotation.Transactional;
+//import jakarta.transaction.Transactional;
+import com.adt.payroll.service.Util;
 
 @Component
 public class MonthlyScheduler {
@@ -56,6 +60,7 @@ public class MonthlyScheduler {
 
 	@Autowired
 	private CommonEmailService mailService;
+
 	@Autowired
 	private LeaveBalanceRepository leaveBalanceRepo;
 
@@ -73,10 +78,9 @@ public class MonthlyScheduler {
 			lm.setLeaveBalance(lm.getLeaveBalance() + 1);
 			leaveRepository.save(lm);
 		}
-
 	}
 
-	//@Scheduled(cron = "0 */2 * * * *")
+//	@Scheduled(cron = "*/2 * * * * *") // for 2 seconds
 	@Scheduled(cron = "0 0 8 * * MON") // Executes on the every Monday at 8 AM
 	public void sendNotificationForTimeSheet() {
 		log.info("Generate weekly time sheet report ");
@@ -95,9 +99,10 @@ public class MonthlyScheduler {
 				try {
 					Optional<User> user = Optional.ofNullable(userRepo.findById(i)
 							.orElseThrow(() -> new NoDataFoundException("employee not found :" + i)));
-					
+
 					ByteArrayOutputStream employeeReport = generateExcelReport(e, user.get().getAdtId());
-					log.info("Sheet generated for employee {}: ",user.get().getFirstName() + " " + user.get().getLastName());
+					log.info("Sheet generated for employee {}: ",
+							user.get().getFirstName() + " " + user.get().getLastName());
 					mailService.sendEmailForTimeSheet(employeeReport,
 							user.get().getFirstName() + " " + user.get().getLastName(), user.get().getEmail(),
 							startDate.format(formatter) + " to " + endDate.format(formatter));
@@ -108,13 +113,13 @@ public class MonthlyScheduler {
 			});
 		}
 	}
- 
+
 	private ByteArrayOutputStream generateExcelReport(List<TimeSheetModel> timeSheet, String adtId) throws IOException {
 		XSSFWorkbook workbook = new XSSFWorkbook();
 		Sheet sheet = workbook.createSheet("TimeSheet Report");
 
 		Row headerRow = sheet.createRow(0);
-		String[] headers = {"ID", "Check-In", "Check-Out", "Working Hour", "Date", "Day"};
+		String[] headers = { "ID", "Check-In", "Check-Out", "Working Hour", "Date", "Day" };
 		for (int i = 0; i < headers.length; i++) {
 			Cell cell = headerRow.createCell(i);
 			cell.setCellValue(headers[i]);
@@ -122,25 +127,25 @@ public class MonthlyScheduler {
 		int rowNum = 1;
 		for (TimeSheetModel timeSheetModel : timeSheet) {
 			Row row = sheet.createRow(rowNum++);
-			//row.createCell(0).setCellValue(String.valueOf(timeSheetModel.getEmployeeId()));
+			// row.createCell(0).setCellValue(String.valueOf(timeSheetModel.getEmployeeId()));
 			row.createCell(0).setCellValue(adtId);
 			row.createCell(1).setCellValue(timeSheetModel.getCheckIn() != null ? timeSheetModel.getCheckIn() : "NULL");
 			row.createCell(2)
 					.setCellValue(timeSheetModel.getCheckOut() != null ? timeSheetModel.getCheckOut() : "NULL");
 			row.createCell(3)
-					.setCellValue(timeSheetModel.getTotalWorkingHours() != null ? timeSheetModel.getTotalWorkingHours().toString() : "NULL");
+					.setCellValue(timeSheetModel.getTotalWorkingHours() != null
+							? timeSheetModel.getTotalWorkingHours().toString()
+							: "NULL");
 			row.createCell(4).setCellValue(timeSheetModel.getDate() != null ? timeSheetModel.getDate() : "NULL");
 			row.createCell(5).setCellValue(timeSheetModel.getDay() != null ? timeSheetModel.getDay() : "NULL");
 		}
-
 		try (ByteArrayOutputStream fileOut = new ByteArrayOutputStream()) {
 			workbook.write(fileOut);
 			workbook.close();
 			return fileOut;
 		}
-
 	}
-	
+
 	@Scheduled(cron = "0 0 8 * * MON")
 	public void sendLeaveNotificationForTimesheet() {
 		log.info("Generate timesheet report and mark absence for employees who were absent during working days");
@@ -184,8 +189,7 @@ public class MonthlyScheduler {
 		while (!workingDates.contains(startDate) && startDate.isBefore(endDate)) {
 			startDate = startDate.plusDays(1);
 		}
-
-		return new LocalDate[]{startDate, endDate};
+		return new LocalDate[] { startDate, endDate };
 	}
 
 	private void processTimeSheets(List<TimeSheetModel> timeSheets, List<LocalDate> workingDatesInWeek) {
@@ -201,38 +205,36 @@ public class MonthlyScheduler {
 				if (absentDates.isEmpty()) {
 					log.info("No absences recorded for employee: {}", employeeId);
 				} else {
-					log.info("Absence recorded successfully for employee: {}. Absent Dates: {}", employeeId, absentDates);
+					log.info("Absence recorded successfully for employee: {}. Absent Dates: {}", employeeId,
+							absentDates);
 				}
 			} catch (Exception ex) {
-				log.error("Error processing leave notification for employeeId: {}. Exception message: {}", employeeId, ex.getMessage(), ex);
+				log.error("Error processing leave notification for employeeId: {}. Exception message: {}", employeeId,
+						ex.getMessage(), ex);
 			}
 		}
 	}
 
-	private List<LocalDate> markAbsences(List<TimeSheetModel> timeSheets, List<LocalDate> workingDatesInWeek, Integer employeeId) {
+	private List<LocalDate> markAbsences(List<TimeSheetModel> timeSheets, List<LocalDate> workingDatesInWeek,
+			Integer employeeId) {
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
-		Set<LocalDate> presentDates = timeSheets.stream()
-				.map(timeSheet -> {
-					try {
-						return LocalDate.parse(timeSheet.getDate(), formatter);
-					} catch (DateTimeParseException e) {
-						log.error("Error parsing date from TimeSheetModel: {}", timeSheet.getDate(), e);
-						return null;
-					}
-				})
-				.filter(Objects::nonNull)
-				.collect(Collectors.toSet());
+		Set<LocalDate> presentDates = timeSheets.stream().map(timeSheet -> {
+			try {
+				return LocalDate.parse(timeSheet.getDate(), formatter);
+			} catch (DateTimeParseException e) {
+				log.error("Error parsing date from TimeSheetModel: {}", timeSheet.getDate(), e);
+				return null;
+			}
+		}).filter(Objects::nonNull).collect(Collectors.toSet());
 
 		log.info("Dates with records: {}", presentDates);
 
-		List<LocalDate> absentDates = workingDatesInWeek.stream()
-				.filter(date -> !presentDates.contains(date))
+		List<LocalDate> absentDates = workingDatesInWeek.stream().filter(date -> !presentDates.contains(date))
 				.collect(Collectors.toList());
 
 		List<User> activeEmployees = userRepo.findAllByIsActive(true);
-		Set<Integer> employeeIdsWithTimeSheets = timeSheets.stream()
-				.map(TimeSheetModel::getEmployeeId)
+		Set<Integer> employeeIdsWithTimeSheets = timeSheets.stream().map(TimeSheetModel::getEmployeeId)
 				.collect(Collectors.toSet());
 
 		for (User employee : activeEmployees) {
@@ -249,18 +251,20 @@ public class MonthlyScheduler {
 					timeSheetRepo.save(absenceRecord);
 					log.info("Marked absence for employeeId: {} on date: {}", employeeId, absentDate);
 				} catch (Exception ex) {
-					log.error("Error marking absence for employeeId: {} on date: {}. Exception message: {}", employeeId, absentDate, ex.getMessage(), ex);
+					log.error("Error marking absence for employeeId: {} on date: {}. Exception message: {}", employeeId,
+							absentDate, ex.getMessage(), ex);
 				}
 			});
 		}
-
 		return absentDates;
 	}
 
-	private void markAbsenceForEmployee(Integer employeeId, List<LocalDate> workingDatesInWeek, DateTimeFormatter formatter) {
+	private void markAbsenceForEmployee(Integer employeeId, List<LocalDate> workingDatesInWeek,
+			DateTimeFormatter formatter) {
 		workingDatesInWeek.forEach(date -> {
 			try {
-				Optional<TimeSheetModel> existingRecords = timeSheetRepo.findByEmployeeIdAndDate(employeeId, date.format(formatter));
+				Optional<TimeSheetModel> existingRecords = timeSheetRepo.findByEmployeeIdAndDate(employeeId,
+						date.format(formatter));
 				if (existingRecords.isEmpty()) {
 					TimeSheetModel absenceRecord = createAbsenceRecord(employeeId, date, formatter);
 					timeSheetRepo.save(absenceRecord);
@@ -269,7 +273,8 @@ public class MonthlyScheduler {
 					log.info("Absence record already exists for employeeId: {} on date: {}", employeeId, date);
 				}
 			} catch (Exception ex) {
-				log.error("Error marking absence for employeeId: {} on date: {}. Exception message: {}", employeeId, date, ex.getMessage(), ex);
+				log.error("Error marking absence for employeeId: {} on date: {}. Exception message: {}", employeeId,
+						date, ex.getMessage(), ex);
 			}
 		});
 	}
@@ -289,42 +294,49 @@ public class MonthlyScheduler {
 
 		return absenceRecord;
 	}
+
+//	@Scheduled(cron = "0 * * * * *") // for every 1 min
+	@Scheduled(cron = "0 0 0 28-31 * ?") // Executes at midnight on the 28th to 31st of every month
+	@Transactional
+	public String sendLeaveNotificationOnMonthlyBasis() {
+		try {
+
+			LocalDate currentDate = LocalDate.now();
+			LocalDate lastDayOfMonth = currentDate.withDayOfMonth(currentDate.lengthOfMonth());
+			// Ensure this runs only on the last day of the month
+			if (!currentDate.isEqual(lastDayOfMonth)) {
+				return "Not the last day of the month, task not executed.";
+			}
+			// Fetch all active users
+			List<User> users = userRepo.findAllByIsActive(true);
+			users.forEach(user -> {
+				try {
+					Optional<LeaveBalance> leaveBalanceOpt = leaveBalanceRepo.findByEmpId(user.getId());
+
+					// Handle leave balance creation if not present
+					LeaveBalance leaveBalance = leaveBalanceOpt.orElseGet(() -> {
+						LeaveBalance newLeaveBalance = new LeaveBalance();
+						newLeaveBalance.setEmp_id(user.getId());
+						newLeaveBalance.setLeaveBalance(1); // Set initial balance
+						return newLeaveBalance;
+					});
+
+					leaveBalance.setLeaveBalance(leaveBalance.getLeaveBalance() + 1);
+					leaveBalance.setUpdatedWhen(Timestamp.valueOf(LocalDateTime.now()));
+
+					leaveBalanceRepo.save(leaveBalance);
+
+					log.info("Leave notification and balance updated successfully for employee: {} {}",
+							user.getFirstName(), user.getLastName());
+				} catch (Exception ex) {
+					log.error("Error processing leave notification for employeeId: {}. Exception message: {}",
+							user.getId(), ex.getMessage(), ex);
+				}
+			});
+		} catch (Exception ex) {
+			log.error("Error processing while executing sendLeaveNotificationOnMonthlyBasis ", ex.getMessage());
+		}
+		return "Leave notifications and balances set successfully for users.";
+	}
+
 }
-
-
-
-
-//	@Scheduled(cron = "0 */1 * * * *")
-	//@Scheduled(cron = "0 0 0 28-31 * ?") // Executes at midnight on the 28th to 31st of every month
-//	@Transactional
-//	public String sendLeaveNotificationOnMonthlyBasis() {
-//		LocalDate currentDate = LocalDate.now();
-//		LocalDate lastDayOfMonth = currentDate.withDayOfMonth(currentDate.lengthOfMonth());
-//		// This block ensures the task runs only on the last day of the month
-//		if (!currentDate.isEqual(lastDayOfMonth)) {
-//			return "Not the last day of the month, task not executed.";
-//		}
-//		// Fetch all users
-//		List<User> users = userRepo.findAll();
-//		users.forEach(user -> {
-//			try {
-//				int employeeId = user.getId();
-//				Optional<LeaveBalance> leaveBalanceOpt = Optional.ofNullable(leaveBalanceRepo.findByEmpId(employeeId));
-//				LeaveBalance leaveBalance = leaveBalanceOpt.orElseGet(() -> {
-//					LeaveBalance newLeaveBalance = new LeaveBalance();
-//					newLeaveBalance.setEmpId(employeeId);
-//					newLeaveBalance.setLeaveBalance(1); // Initialize paid leave to 0
-//					return newLeaveBalance;
-//				});
-//				// Allocate 1 paid leave at the start of the month
-//				leaveBalance.setLeaveBalance(leaveBalance.getPaidLeave() + 1);
-//				// Save the updated leave balance
-//				leaveBalanceRepo.save(leaveBalance);
-//				log.info("Leave notification and balance updated successfully for employee: {} {}", user.getFirstName(), user.getLastName());
-//			} catch (Exception ex) {
-//				log.error("Error processing leave notification for employeeId: {}. Exception message: {}", user.getId(), ex.getMessage(), ex);
-//			}
-//		});
-//		return "Leave notifications and balances sent successfully for users.";
-//	}
-
