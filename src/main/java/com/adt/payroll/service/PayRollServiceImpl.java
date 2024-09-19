@@ -1386,9 +1386,9 @@ public class PayRollServiceImpl implements PayRollService {
 			absentDeductionAmt = halfDayAmountDeduct + absentDeductionAmt;
 		}
 
-		if (absentDeductionAmt < dto.getAbsentDeduction())
-			return new ResponseEntity<>(Util.ABSENT_DEDUCTION + Util.PAYSLIP_VALIDATION_MSG + absentDeductionAmt,
-					HttpStatus.OK);
+//		if (absentDeductionAmt < dto.getAbsentDeduction())
+//			return new ResponseEntity<>(Util.ABSENT_DEDUCTION + Util.PAYSLIP_VALIDATION_MSG + absentDeductionAmt,
+//					HttpStatus.OK);
 		double grossDeduction = dto.getEmployeeEsic() + dto.getEmployeePf() + absentDeductionAmt + dto.getAjdustment();
 		double netSalary = Math.round(salaryDetails.getGrossSalary() - grossDeduction);
 		if (netSalary < 0) {
@@ -1453,6 +1453,7 @@ public class PayRollServiceImpl implements PayRollService {
 		regeneratedSalary.setHalfDay(empHalfDay);
 		regeneratedSalary.setPresentDays(empTotalWorkingDay);
 		regeneratedSalary.setTotalWorkingDays(officeTotalWorkingDay);
+
 		ResponseEntity<Object> response = new ResponseEntity<>(regeneratedSalary, HttpStatus.OK);
 		return response;
 	}
@@ -1513,10 +1514,10 @@ public class PayRollServiceImpl implements PayRollService {
 			dto.setCreditedDate(dto.getCreditedDate() != null ? dto.getCreditedDate() : "");
 			dto.setEmpId(dto.getEmpId() != 0 ? dto.getEmpId() : 0);
 			dto.setUpdatedWhen(
-					dto.getUpdatedWhen() != null ? dto.getUpdatedWhen() : new Timestamp(System.currentTimeMillis()));
+					dto.getUpdatedWhen() != null ? dto.getUpdatedWhen() : new Timestamp(current.getMillis()));
 
 			dto.setActive(true);
-			dto.setUpdatedWhen(new Timestamp(current.getMillis()));
+//			dto.setUpdatedWhen(new Timestamp(current.getMillis()));
 			MonthlySalaryDetails savedMonthlySalary = monthlySalaryDetailsRepo.save(dto);
 			log.info("Monthly salary saved.");
 
